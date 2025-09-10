@@ -333,10 +333,78 @@ def gerar_banners(driver):
     time.sleep(10)
 
 def aguardar_e_enviar_telegram(driver):
+    print("📤 Procurando próximos passos após geração...")
+    
+    # Primeiro, aguarda um pouco para ver se aparece algo
+    time.sleep(5)
+    
+    # Verifica se apareceu seleção de cores ou outras opções
+    print("🎨 Verificando se apareceram opções de cores...")
+    
+    opcoes_cores = [
+        "//button[contains(@style, 'background') or contains(@class, 'cor')]",
+        "//div[contains(@class, 'cor') or contains(@class, 'color')]", 
+        "//button[contains(text(), 'Cor') or contains(text(), 'cor')]",
+        "//div[contains(text(), 'Escolha') and contains(text(), 'cor')]",
+        "//input[@type='radio' and contains(@name, 'cor')]",
+        "//select[contains(@name, 'cor') or contains(@id, 'cor')]",
+        "//button[contains(@onclick, 'cor')]"
+    ]
+    
+    cor_selecionada = False
+    for i, strategy in enumerate(opcoes_cores):
+        try:
+            print(f"🔍 Procurando cores - estratégia {i+1}")
+            elementos_cor = driver.find_elements(By.XPATH, strategy)
+            if elementos_cor:
+                print(f"✅ Encontrou {len(elementos_cor)} opções de cor!")
+                # Clica na primeira cor disponível (geralmente padrão)
+                elementos_cor[0].click()
+                cor_selecionada = True
+                print("✅ Cor selecionada (primeira opção)")
+                time.sleep(2)
+                break
+        except:
+            continue
+    
+    if not cor_selecionada:
+        print("⚠️ Nenhuma seleção de cor encontrada")
+    
+    # Procura por botões de confirmação/continuar após seleção de cor
+    print("🔄 Procurando botão de confirmação...")
+    
+    botoes_confirmacao = [
+        "//button[contains(text(), 'Confirmar')]",
+        "//button[contains(text(), 'Continuar')]", 
+        "//button[contains(text(), 'Avançar')]",
+        "//button[contains(text(), 'Próximo')]",
+        "//button[contains(text(), 'OK')]",
+        "//input[@type='submit']",
+        "//button[@type='submit']"
+    ]
+    
+    confirmacao_clicada = False
+    for i, strategy in enumerate(botoes_confirmacao):
+        try:
+            print(f"🔍 Procurando confirmação - estratégia {i+1}")
+            botao = WebDriverWait(driver, 3).until(
+                EC.element_to_be_clickable((By.XPATH, strategy))
+            )
+            botao.click()
+            confirmacao_clicada = True
+            print("✅ Botão de confirmação clicado!")
+            time.sleep(3)
+            break
+        except:
+            continue
+    
+    if not confirmacao_clicada:
+        print("⚠️ Nenhum botão de confirmação encontrado")
+    
+    # Agora procura pelo botão de envio para Telegram
     print("📤 Procurando botão de envio para Telegram...")
     
-    # Aguarda até 3 minutos pela conclusão da geração
-    max_tentativas = 36  # 36 x 5s = 3 minutos
+    max_tentativas = 20  # Reduzido para 20 tentativas (1min 40s)
     
     estrategias_enviar = [
         "//button[contains(text(), 'Enviar')]",
@@ -346,10 +414,28 @@ def aguardar_e_enviar_telegram(driver):
         "//a[contains(text(), 'Enviar')]",
         "//div[contains(text(), 'Enviar') and @onclick]",
         "//button[contains(@onclick, 'telegram')]",
+        "//button[contains(text(), 'Finalizar')]",
+        "//button[contains(text(), 'Concluir')]"
     ]
     
     for tentativa in range(max_tentativas):
         print(f"⏳ Tentativa {tentativa + 1}/{max_tentativas} - Procurando botão enviar...")
+        
+        # Debug: mostra o que tem na página atual
+        if tentativa % 5 == 0:  # A cada 5 tentativas, mostra debug
+            try:
+                body_text = driver.find_element(By.TAG_NAME, "body").text
+                print(f"📄 Debug da página atual: {body_text[:200]}...")
+                
+                # Lista botões visíveis
+                buttons = driver.find_elements(By.TAG_NAME, "button")
+                if buttons:
+                    print(f"🔘 {len(buttons)} botões na página:")
+                    for i, btn in enumerate(buttons[:3]):
+                        text = btn.text.strip()[:30] or "sem texto"
+                        print(f"   {i+1}. '{text}'")
+            except:
+                pass
         
         for i, strategy in enumerate(estrategias_enviar):
             try:
@@ -365,15 +451,26 @@ def aguardar_e_enviar_telegram(driver):
         
         time.sleep(5)
     
-    print("⚠️ Botão de enviar não apareceu após 3 minutos")
+    print("⚠️ Botão de enviar não apareceu após as tentativas")
     print("💡 Verificando se apareceu algum link ou mensagem de sucesso...")
     
     # Verifica se apareceu alguma mensagem de sucesso
     try:
         body_text = driver.find_element(By.TAG_NAME, "body").text
-        if any(palavra in body_text.lower() for palavra in ['sucesso', 'enviado', 'concluído', 'finalizado']):
+        print(f"📄 Conteúdo final da página: {body_text[:500]}...")
+        
+        if any(palavra in body_text.lower() for palavra in ['sucesso', 'enviado', 'concluído', 'finalizado', 'pronto', 'gerado']):
             print("✅ Possível sucesso detectado no texto da página!")
             return True
+        
+        # Se não encontrou sucesso, lista todos os botões para debug
+        buttons = driver.find_elements(By.TAG_NAME, "button")
+        print(f"🔘 Botões disponíveis na página final ({len(buttons)}):")
+        for i, btn in enumerate(buttons):
+            text = btn.text.strip() or "sem texto"
+            onclick = btn.get_attribute('onclick') or "sem onclick"
+            print(f"   {i+1}. '{text}' - onclick: {onclick[:50]}")
+            
     except:
         pass
     
