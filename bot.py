@@ -105,44 +105,95 @@ def fazer_login(driver, login, senha):
 
 def ir_gerar_futebol(driver):
     print("⚽ Procurando menu Gerar Futebol...")
+    print(f"📍 URL atual: {driver.current_url}")
+    
+    # Se ainda está na página de login, algo deu errado
+    if "login.php" in driver.current_url:
+        print("⚠️ Ainda na página de login, tentando navegar...")
+        driver.get("https://gerador.pro/")
+        time.sleep(3)
+    
+    # Aguarda a página carregar completamente
+    time.sleep(3)
+    
+    # Lista todos os elementos clicáveis para debug
+    try:
+        links = driver.find_elements(By.TAG_NAME, "a")[:10]  # Primeiros 10 links
+        print(f"🔗 {len(links)} links encontrados:")
+        for i, link in enumerate(links):
+            text = link.text.strip()[:50]  # Primeiros 50 chars
+            href = link.get_attribute('href') or 'sem href'
+            if text or 'futebol' in href.lower():
+                print(f"   {i+1}. '{text}' -> {href}")
+    except:
+        pass
     
     # Múltiplas estratégias para encontrar o menu
     futebol_selectors = [
         "//a[contains(text(), 'Gerar Futebol')]",
-        "//a[contains(text(), 'Futebol')]",
+        "//a[contains(text(), 'Futebol')]", 
+        "//a[contains(@href, 'futebol')]",
         "//button[contains(text(), 'Gerar Futebol')]",
+        "//button[contains(text(), 'Futebol')]",
         "//div[contains(text(), 'Gerar Futebol')]",
         "//span[contains(text(), 'Futebol')]",
         "//li[contains(text(), 'Futebol')]",
-        "//nav//a[contains(text(), 'Futebol')]"
+        "//nav//a[contains(text(), 'Futebol')]",
+        "//*[contains(text(), 'Gerar') and contains(text(), 'Futebol')]",
+        "//a[contains(@class, 'futebol')]",
+        "//button[contains(@class, 'futebol')]"
     ]
     
     elemento_clicado = False
-    for selector in futebol_selectors:
+    for i, selector in enumerate(futebol_selectors):
         try:
-            elemento = WebDriverWait(driver, 3).until(
+            print(f"🔍 Tentativa {i+1}: {selector}")
+            elemento = WebDriverWait(driver, 2).until(
                 EC.element_to_be_clickable((By.XPATH, selector))
             )
             elemento.click()
             elemento_clicado = True
-            print(f"✅ Menu futebol encontrado!")
+            print(f"✅ Menu futebol encontrado com seletor {i+1}!")
             break
-        except:
+        except Exception as e:
+            print(f"   ❌ Falhou: {str(e)[:50]}")
             continue
     
+    # Se não encontrou por texto, tenta por posição/índice
     if not elemento_clicado:
-        # Estratégia alternativa - procura por href
+        print("🔄 Tentando encontrar por posição...")
         try:
-            link_futebol = driver.find_element(By.XPATH, "//a[contains(@href, 'futebol')]")
-            link_futebol.click()
-            elemento_clicado = True
-            print("✅ Menu futebol encontrado via href!")
+            # Tenta segundo ou terceiro link da página
+            links = driver.find_elements(By.TAG_NAME, "a")
+            for i, link in enumerate(links[1:4]):  # Links 2, 3, 4
+                href = link.get_attribute('href') or ''
+                text = link.text.strip()
+                if 'futebol' in href.lower() or 'futebol' in text.lower():
+                    link.click()
+                    elemento_clicado = True
+                    print(f"✅ Menu futebol encontrado na posição {i+2}!")
+                    break
         except:
             pass
     
     if elemento_clicado:
         time.sleep(3)
+        print(f"✅ Navegou para: {driver.current_url}")
     else:
+        # Lista todos os elementos da página para debug
+        try:
+            all_text = driver.find_element(By.TAG_NAME, "body").text
+            if "futebol" in all_text.lower():
+                print("⚠️ Palavra 'futebol' encontrada na página, mas elemento não clicável")
+            else:
+                print("⚠️ Palavra 'futebol' NÃO encontrada na página")
+            
+            # Mostra parte do conteúdo da página
+            print("📄 Conteúdo da página (primeiros 200 chars):")
+            print(f"   {all_text[:200]}...")
+        except:
+            pass
+            
         raise Exception("Menu Gerar Futebol não encontrado")
 
 def selecionar_modelo_2(driver):
