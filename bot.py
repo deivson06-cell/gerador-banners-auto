@@ -219,7 +219,7 @@ def selecionar_opcoes_futebol(driver):
         
         # Buttons ou divs clicáveis
         "//button[contains(text(), '2')]",
-        "//div[contains(text(), 'Modelo 2')]",
+        "//div[contains(text(), 'Modelo 3')]",
         "//label[contains(text(), 'Modelo 2')]",
     ]
     
@@ -476,6 +476,53 @@ def aguardar_e_enviar_telegram(driver):
     
     return False
 
+def enviar_notificacao_pessoal(sucesso, erro=None):
+    """Envia notificação pessoal sobre o status da execução"""
+    try:
+        import requests
+        
+        # Você precisará configurar esses valores nos GitHub Secrets
+        bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")  # Token do seu bot pessoal
+        chat_id = os.environ.get("TELEGRAM_CHAT_ID")      # Seu chat ID pessoal
+        
+        if not bot_token or not chat_id:
+            print("⚠️ Token/Chat ID não configurados para notificações")
+            return
+        
+        if sucesso:
+            emoji = "✅"
+            status = "SUCESSO"
+            mensagem = f"{emoji} *GERADOR PRO - Automação Executada*\n\n" \
+                      f"🎯 Status: {status}\n" \
+                      f"⏰ Horário: {time.strftime('%d/%m/%Y %H:%M:%S')}\n" \
+                      f"📤 Banners enviados para o canal\n" \
+                      f"🔔 Próxima execução: amanhã às 10h"
+        else:
+            emoji = "❌"
+            status = "ERRO"
+            mensagem = f"{emoji} *GERADOR PRO - Falha na Automação*\n\n" \
+                      f"🎯 Status: {status}\n" \
+                      f"⏰ Horário: {time.strftime('%d/%m/%Y %H:%M:%S')}\n" \
+                      f"💥 Erro: {str(erro)[:100]}...\n" \
+                      f"🔧 Verificar logs no GitHub Actions"
+        
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        payload = {
+            'chat_id': chat_id,
+            'text': mensagem,
+            'parse_mode': 'Markdown'
+        }
+        
+        response = requests.post(url, json=payload, timeout=10)
+        
+        if response.status_code == 200:
+            print(f"{emoji} Notificação pessoal enviada!")
+        else:
+            print(f"⚠️ Falha ao enviar notificação: {response.status_code}")
+            
+    except Exception as e:
+        print(f"⚠️ Erro na notificação: {str(e)}")
+
 def main():
     print("🚀 INICIANDO AUTOMAÇÃO COMPLETA - GERADOR PRO")
     print(f"⏰ Horário: {time.strftime('%d/%m/%Y %H:%M:%S')}")
@@ -486,6 +533,7 @@ def main():
     
     if not login or not senha:
         print("❌ Credenciais não encontradas!")
+        enviar_notificacao_pessoal(False, "Credenciais não encontradas")
         return
     
     print(f"🔑 Login: {login}")
@@ -503,9 +551,11 @@ def main():
         if sucesso_envio:
             print("🎉 AUTOMAÇÃO CONCLUÍDA COM SUCESSO!")
             print("🔔 Verifique seu canal no Telegram para os banners!")
+            enviar_notificacao_pessoal(True)  # Notifica sucesso
         else:
             print("⚠️ Geração pode ter sido concluída, mas envio automático falhou")
             print("💡 Verifique manualmente se os banners estão disponíveis no site")
+            enviar_notificacao_pessoal(False, "Envio para canal falhou")
         
         print(f"📍 URL final: {driver.current_url}")
         
@@ -520,6 +570,7 @@ def main():
         except:
             pass
         
+        enviar_notificacao_pessoal(False, str(e))  # Notifica erro
         raise e
         
     finally:
