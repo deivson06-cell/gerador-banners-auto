@@ -110,7 +110,7 @@ def ir_gerar_futebol(driver):
     # Se ainda está na página de login, algo deu errado
     if "login.php" in driver.current_url:
         print("⚠️ Ainda na página de login, tentando navegar...")
-        driver.get("https://gerador.pro/")
+        driver.get("https://gerador.pro/login.php")
         time.sleep(3)
     
     # Aguarda a página carregar completamente
