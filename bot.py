@@ -56,16 +56,85 @@ def fazer_login(driver, login, senha):
 def ir_gerar_futebol(driver):
     print("⚽ Indo para Gerar Futebol...")
     
-    # Clica diretamente no link "Gerar Futebol"
-    link_futebol = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH, "//a[contains(text(), 'Gerar Futebol')]"))
-    )
-    link_futebol.click()
-    print("✅ Clicou em Gerar Futebol")
-    
-    # Aguarda carregar a página
+    # Aguarda a página carregar completamente
     time.sleep(3)
+    
+    # Múltiplas estratégias para encontrar e clicar no link
+    estrategias = [
+        # Link direto por texto
+        "//a[contains(text(), 'Gerar Futebol')]",
+        "//a[text()='Gerar Futebol']",
+        
+        # Link por href
+        "//a[@href='https://gerador.pro/futbanner.php']",
+        "//a[contains(@href, 'futbanner.php')]",
+        "//a[contains(@href, 'futebol')]",
+        
+        # Div ou outros elementos clicáveis
+        "//div[contains(text(), 'Gerar Futebol')]",
+        "//span[contains(text(), 'Gerar Futebol')]",
+        "//li[contains(text(), 'Gerar Futebol')]",
+        
+        # Por posição (pode ser o terceiro link)
+        "(//a)[3]",
+        
+        # Menu items
+        "//nav//a[contains(text(), 'Gerar Futebol')]",
+        "//*[@class and contains(text(), 'Gerar Futebol')]"
+    ]
+    
+    link_clicado = False
+    for i, strategy in enumerate(estrategias):
+        try:
+            print(f"🔍 Tentativa {i+1}: {strategy}")
+            
+            # Tenta encontrar o elemento
+            elemento = driver.find_element(By.XPATH, strategy)
+            
+            # Verifica se está visível
+            if elemento.is_displayed():
+                # Tenta clicar normalmente
+                try:
+                    elemento.click()
+                    link_clicado = True
+                    print("✅ Clicou em Gerar Futebol (clique normal)")
+                    break
+                except:
+                    # Se clique normal falhou, tenta JavaScript
+                    try:
+                        driver.execute_script("arguments[0].click();", elemento)
+                        link_clicado = True
+                        print("✅ Clicou em Gerar Futebol (JavaScript)")
+                        break
+                    except:
+                        print("   ❌ Clique falhou")
+            else:
+                print("   ❌ Elemento não visível")
+                
+        except Exception as e:
+            print(f"   ❌ Falhou: {str(e)[:50]}")
+            continue
+    
+    # Se ainda não clicou, tenta navegar diretamente pela URL
+    if not link_clicado:
+        print("🔄 Tentando navegação direta...")
+        try:
+            driver.get("https://gerador.pro/futbanner.php")
+            link_clicado = True
+            print("✅ Navegou diretamente para futbanner.php")
+        except:
+            print("❌ Navegação direta falhou")
+    
+    if not link_clicado:
+        raise Exception("Não foi possível acessar Gerar Futebol")
+    
+    # Aguarda carregar a nova página
+    time.sleep(5)
     print(f"✅ Página carregada: {driver.current_url}")
+    
+    # Verifica se realmente está na página de futebol
+    if "futbanner" not in driver.current_url.lower():
+        print("⚠️ URL não contém 'futbanner', mas continuando...")
 
 def debug_pagina_futebol(driver):
     """Debug da página de futebol para entender a estrutura"""
