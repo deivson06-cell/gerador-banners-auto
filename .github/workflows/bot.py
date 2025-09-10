@@ -4,6 +4,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
 def setup():
@@ -11,7 +12,23 @@ def setup():
     opts.add_argument("--headless")
     opts.add_argument("--no-sandbox") 
     opts.add_argument("--disable-dev-shm-usage")
-    return webdriver.Chrome(ChromeDriverManager().install(), options=opts)
+    opts.add_argument("--disable-gpu")
+    opts.add_argument("--window-size=1920,1080")
+    service = Service(ChromeDriverManager().install())
+    return webdriver.Chrome(service=service, options=opts)
+
+def tentar_cliques(driver, seletores, nome_acao):
+    """Tenta vários seletores até encontrar um que funcione"""
+    for i, seletor in enumerate(seletores):
+        try:
+            print(f"🔍 Tentando {nome_acao} - opção {i+1}")
+            element = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, seletor)))
+            element.click()
+            print(f"✅ {nome_acao} - sucesso!")
+            return True
+        except:
+            continue
+    return False
 
 def main():
     login = os.environ["LOGIN"]
@@ -21,38 +38,32 @@ def main():
     try:
         print("🔑 Fazendo login...")
         driver.get("https://geradorpro.com/login")
-        
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.NAME, "email")))
-        driver.find_element(By.NAME, "email").send_keys(login)
-        driver.find_element(By.NAME, "password").send_keys(senha)
-        driver.find_element(By.XPATH, "//button[@type='submit']").click()
         time.sleep(3)
         
-        print("⚽ Indo para Gerar Futebol...")
-        driver.find_element(By.XPATH, "//a[contains(text(), 'Gerar Futebol')]").click()
-        time.sleep(2)
+        # Múltiplas opções para campo de email
+        email_seletores = [
+            "//input[@name='email']",
+            "//input[@type='email']", 
+            "//input[@placeholder='Email']",
+            "//input[@id='email']",
+            "//input[contains(@class, 'email')]"
+        ]
         
-        print("🎨 Selecionando Modelo 2...")
-        driver.find_element(By.XPATH, "//div[contains(text(), 'Modelo 2')]").click()
-        time.sleep(1)
+        email_encontrado = False
+        for seletor in email_seletores:
+            try:
+                campo_email = WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.XPATH, seletor)))
+                campo_email.clear()
+                campo_email.send_keys(login)
+                print("✅ Campo email preenchido!")
+                email_encontrado = True
+                break
+            except:
+                continue
+                
+        if not email_encontrado:
+            print("❌ Campo email não encontrado!")
+            driver.save_screenshot("erro_email.png")
+            return
         
-        print("🏆 Gerando banners do dia...")
-        driver.find_element(By.XPATH, "//button[contains(text(), 'Hoje')]").click()
-        driver.find_element(By.XPATH, "//button[contains(text(), 'Gerar')]").click()
-        
-        print("⏳ Aguardando geração...")
-        WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Enviar')]")))
-        
-        print("📤 Enviando para Telegram...")
-        driver.find_element(By.XPATH, "//button[contains(text(), 'Enviar')]").click()
-        time.sleep(5)
-        
-        print("✅ Concluído! Banners enviados às", time.strftime('%H:%M'))
-        
-    except Exception as e:
-        print(f"❌ Erro: {e}")
-    finally:
-        driver.quit()
-
-if __name__ == "__main__":
-    main()
+        # Múltiplas opções para senha
