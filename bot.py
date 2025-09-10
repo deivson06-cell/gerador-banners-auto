@@ -24,7 +24,7 @@ def setup_driver():
 
 def fazer_login(driver, login, senha):
     print("🔑 Fazendo login no GERADOR PRO...")
-    driver.get("https://geradorpro.com/login")
+    driver.get("https://gerador.pro/login.php")
     time.sleep(5)
     
     # Campo email - múltiplas tentativas
