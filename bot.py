@@ -5,6 +5,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.keys import Keys
 from webdriver_manager.chrome import ChromeDriverManager
 
 def setup_driver():
@@ -22,297 +23,201 @@ def setup_driver():
     print("✅ Chrome configurado!")
     return driver
 
-def fazer_login(driver, login, senha):
-    print("🔑 Fazendo login no GERADOR PRO...")
+def debug_login_completo(driver, login, senha):
+    print("🔑 FAZENDO LOGIN COM DEBUG COMPLETO...")
     driver.get("https://gerador.pro/login.php")
     time.sleep(5)
     
-    # Campo email - múltiplas tentativas
-    email_selectors = [
-        "input[name='email']",
-        "input[type='email']", 
-        "input[id='email']",
-        "input[placeholder*='mail']"
+    # 1. LISTAR TODOS OS ELEMENTOS DA PÁGINA
+    print("📋 ANALISANDO PÁGINA DE LOGIN:")
+    
+    # Lista todos os inputs
+    inputs = driver.find_elements(By.TAG_NAME, "input")
+    print(f"📝 {len(inputs)} campos input encontrados:")
+    for i, inp in enumerate(inputs):
+        name = inp.get_attribute('name') or 'sem name'
+        type_attr = inp.get_attribute('type') or 'sem type'
+        id_attr = inp.get_attribute('id') or 'sem id'
+        placeholder = inp.get_attribute('placeholder') or 'sem placeholder'
+        value = inp.get_attribute('value') or 'sem value'
+        print(f"   {i+1}. name='{name}' type='{type_attr}' id='{id_attr}' placeholder='{placeholder}' value='{value}'")
+    
+    # Lista todos os botões
+    buttons = driver.find_elements(By.TAG_NAME, "button")
+    print(f"🔘 {len(buttons)} botões encontrados:")
+    for i, btn in enumerate(buttons):
+        text = btn.text.strip() or 'sem texto'
+        type_attr = btn.get_attribute('type') or 'sem type'
+        onclick = btn.get_attribute('onclick') or 'sem onclick'
+        print(f"   {i+1}. text='{text}' type='{type_attr}' onclick='{onclick}'")
+    
+    # Lista inputs de submit também
+    submit_inputs = driver.find_elements(By.XPATH, "//input[@type='submit']")
+    print(f"📨 {len(submit_inputs)} inputs submit encontrados:")
+    for i, sub in enumerate(submit_inputs):
+        value = sub.get_attribute('value') or 'sem value'
+        name = sub.get_attribute('name') or 'sem name'
+        print(f"   {i+1}. value='{value}' name='{name}'")
+    
+    # Lista formulários
+    forms = driver.find_elements(By.TAG_NAME, "form")
+    print(f"📝 {len(forms)} formulários encontrados:")
+    for i, form in enumerate(forms):
+        action = form.get_attribute('action') or 'sem action'
+        method = form.get_attribute('method') or 'sem method'
+        print(f"   {i+1}. action='{action}' method='{method}'")
+    
+    # 2. TENTAR PREENCHER CAMPOS DE MÚLTIPLAS FORMAS
+    print("\n🔍 TENTANDO PREENCHER CAMPOS...")
+    
+    # Campo usuário/email
+    campo_usuario = None
+    strategies = [
+        ("name", "usuario"),
+        ("name", "email"), 
+        ("name", "login"),
+        ("name", "user"),
+        ("id", "usuario"),
+        ("id", "email"),
+        ("id", "login"),
+        ("type", "email"),
+        ("type", "text")
     ]
     
-    campo_email = None
-    for selector in email_selectors:
+    for attr, value in strategies:
         try:
-            campo_email = WebDriverWait(driver, 3).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, selector))
-            )
+            if attr == "type":
+                campo_usuario = driver.find_element(By.XPATH, f"//input[@type='{value}']")
+            else:
+                campo_usuario = driver.find_element(By.XPATH, f"//input[@{attr}='{value}']")
+            print(f"✅ Campo usuário encontrado via {attr}='{value}'")
             break
         except:
             continue
     
-    if not campo_email:
-        # Fallback - pega primeiro input
-        inputs = driver.find_elements(By.TAG_NAME, "input")
-        if inputs:
-            campo_email = inputs[0]
-    
-    if campo_email:
-        campo_email.clear()
-        campo_email.send_keys(login)
-        print("✅ Email preenchido")
-    else:
-        raise Exception("Campo de email não encontrado")
+    # Se não encontrou, pega o primeiro input
+    if not campo_usuario and inputs:
+        campo_usuario = inputs[0]
+        print("✅ Usando primeiro input como campo usuário")
     
     # Campo senha
-    campo_senha = WebDriverWait(driver, 5).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']"))
-    )
-    campo_senha.clear()
-    campo_senha.send_keys(senha)
-    print("✅ Senha preenchida")
-    
-    # Botão login - múltiplas tentativas
-    login_selectors = [
-        "button[type='submit']",
-        "input[type='submit']",
-        "button:contains('Entrar')",
-        "button:contains('Login')"
-    ]
-    
-    botao_clicado = False
-    for selector in login_selectors:
-        try:
-            if 'contains' in selector:
-                # XPath para texto
-                xpath = f"//button[contains(text(), '{selector.split(':contains(')[1][:-2]}')]"
-                botao = driver.find_element(By.XPATH, xpath)
-            else:
-                botao = driver.find_element(By.CSS_SELECTOR, selector)
-            
-            botao.click()
-            botao_clicado = True
-            break
-        except:
-            continue
-    
-    if not botao_clicado:
-        # Fallback - primeiro botão da página
-        botoes = driver.find_elements(By.TAG_NAME, "button")
-        if botoes:
-            botoes[0].click()
-            botao_clicado = True
-    
-    if botao_clicado:
-        print("✅ Login executado!")
-        time.sleep(5)
-    else:
-        raise Exception("Botão de login não encontrado")
-
-def ir_gerar_futebol(driver):
-    print("⚽ Procurando menu Gerar Futebol...")
-    print(f"📍 URL atual: {driver.current_url}")
-    
-    # Se ainda está na página de login, algo deu errado
-    if "login.php" in driver.current_url:
-        print("⚠️ Ainda na página de login, tentando navegar...")
-        driver.get("https://gerador.pro/login.php")
-        time.sleep(3)
-    
-    # Aguarda a página carregar completamente
-    time.sleep(3)
-    
-    # Lista todos os elementos clicáveis para debug
+    campo_senha = None
     try:
-        links = driver.find_elements(By.TAG_NAME, "a")[:10]  # Primeiros 10 links
-        print(f"🔗 {len(links)} links encontrados:")
-        for i, link in enumerate(links):
-            text = link.text.strip()[:50]  # Primeiros 50 chars
-            href = link.get_attribute('href') or 'sem href'
-            if text or 'futebol' in href.lower():
-                print(f"   {i+1}. '{text}' -> {href}")
+        campo_senha = driver.find_element(By.XPATH, "//input[@type='password']")
+        print("✅ Campo senha encontrado")
     except:
-        pass
+        if len(inputs) > 1:
+            campo_senha = inputs[1]
+            print("✅ Usando segundo input como campo senha")
     
-    # Múltiplas estratégias para encontrar o menu
-    futebol_selectors = [
-        "//a[contains(text(), 'Gerar Futebol')]",
-        "//a[contains(text(), 'Futebol')]", 
-        "//a[contains(@href, 'futebol')]",
-        "//button[contains(text(), 'Gerar Futebol')]",
-        "//button[contains(text(), 'Futebol')]",
-        "//div[contains(text(), 'Gerar Futebol')]",
-        "//span[contains(text(), 'Futebol')]",
-        "//li[contains(text(), 'Futebol')]",
-        "//nav//a[contains(text(), 'Futebol')]",
-        "//*[contains(text(), 'Gerar') and contains(text(), 'Futebol')]",
-        "//a[contains(@class, 'futebol')]",
-        "//button[contains(@class, 'futebol')]"
-    ]
+    if not campo_usuario or not campo_senha:
+        print("❌ ERRO: Não foi possível identificar os campos!")
+        return False
     
-    elemento_clicado = False
-    for i, selector in enumerate(futebol_selectors):
-        try:
-            print(f"🔍 Tentativa {i+1}: {selector}")
-            elemento = WebDriverWait(driver, 2).until(
-                EC.element_to_be_clickable((By.XPATH, selector))
-            )
-            elemento.click()
-            elemento_clicado = True
-            print(f"✅ Menu futebol encontrado com seletor {i+1}!")
-            break
-        except Exception as e:
-            print(f"   ❌ Falhou: {str(e)[:50]}")
-            continue
+    # 3. PREENCHER OS CAMPOS
+    print("\n📝 PREENCHENDO CAMPOS...")
     
-    # Se não encontrou por texto, tenta por posição/índice
-    if not elemento_clicado:
-        print("🔄 Tentando encontrar por posição...")
-        try:
-            # Tenta segundo ou terceiro link da página
-            links = driver.find_elements(By.TAG_NAME, "a")
-            for i, link in enumerate(links[1:4]):  # Links 2, 3, 4
-                href = link.get_attribute('href') or ''
-                text = link.text.strip()
-                if 'futebol' in href.lower() or 'futebol' in text.lower():
-                    link.click()
-                    elemento_clicado = True
-                    print(f"✅ Menu futebol encontrado na posição {i+2}!")
-                    break
-        except:
-            pass
-    
-    if elemento_clicado:
-        time.sleep(3)
-        print(f"✅ Navegou para: {driver.current_url}")
-    else:
-        # Lista todos os elementos da página para debug
-        try:
-            all_text = driver.find_element(By.TAG_NAME, "body").text
-            if "futebol" in all_text.lower():
-                print("⚠️ Palavra 'futebol' encontrada na página, mas elemento não clicável")
-            else:
-                print("⚠️ Palavra 'futebol' NÃO encontrada na página")
-            
-            # Mostra parte do conteúdo da página
-            print("📄 Conteúdo da página (primeiros 200 chars):")
-            print(f"   {all_text[:200]}...")
-        except:
-            pass
-            
-        raise Exception("Menu Gerar Futebol não encontrado")
-
-def selecionar_modelo_2(driver):
-    print("🎨 Procurando Modelo 2...")
-    
-    modelo_selectors = [
-        "//div[contains(text(), 'Modelo 2')]",
-        "//button[contains(text(), 'Modelo 2')]",
-        "//span[contains(text(), 'Modelo 2')]",
-        "//label[contains(text(), 'Modelo 2')]",
-        "//input[@value='2']",
-        "//*[text()='2']",
-        "//div[contains(@class, 'modelo') and contains(text(), '2')]"
-    ]
-    
-    for selector in modelo_selectors:
-        try:
-            modelo = WebDriverWait(driver, 2).until(
-                EC.element_to_be_clickable((By.XPATH, selector))
-            )
-            modelo.click()
-            print("✅ Modelo 2 selecionado!")
-            time.sleep(1)
-            return
-        except:
-            continue
-    
-    print("⚠️ Modelo 2 não encontrado, continuando...")
-
-def gerar_banners_dia_atual(driver):
-    print("🏆 Procurando opção do dia atual...")
-    
-    # Seleciona jogos de hoje
-    dia_selectors = [
-        "//button[contains(text(), 'Hoje')]",
-        "//button[contains(text(), 'Dia')]",
-        "//div[contains(text(), 'Hoje')]",
-        "//span[contains(text(), 'Hoje')]",
-        "//input[@value='hoje']",
-        "//label[contains(text(), 'Hoje')]",
-        "//option[contains(text(), 'Hoje')]"
-    ]
-    
-    for selector in dia_selectors:
-        try:
-            elemento_dia = WebDriverWait(driver, 2).until(
-                EC.element_to_be_clickable((By.XPATH, selector))
-            )
-            elemento_dia.click()
-            print("✅ Jogos de hoje selecionados!")
-            time.sleep(1)
-            break
-        except:
-            continue
-    
-    # Clica no botão gerar
-    print("🔄 Procurando botão Gerar...")
-    gerar_selectors = [
-        "//button[contains(text(), 'Gerar')]",
-        "//input[@value='Gerar']",
-        "//button[contains(@class, 'gerar')]",
-        "//div[contains(text(), 'Gerar')]",
-        "//span[contains(text(), 'Gerar')]"
-    ]
-    
-    gerar_clicado = False
-    for selector in gerar_selectors:
-        try:
-            botao_gerar = WebDriverWait(driver, 3).until(
-                EC.element_to_be_clickable((By.XPATH, selector))
-            )
-            botao_gerar.click()
-            gerar_clicado = True
-            print("✅ Geração iniciada!")
-            break
-        except:
-            continue
-    
-    if not gerar_clicado:
-        raise Exception("Botão Gerar não encontrado")
-    
-    print("⏳ Aguardando geração dos banners...")
-
-def aguardar_e_enviar_telegram(driver):
-    print("📤 Aguardando conclusão para enviar ao Telegram...")
-    
-    # Aguarda até 3 minutos pela conclusão
-    enviar_selectors = [
-        "//button[contains(text(), 'Enviar')]",
-        "//button[contains(text(), 'Telegram')]",
-        "//div[contains(text(), 'Enviar')]",
-        "//span[contains(text(), 'Enviar')]",
-        "//a[contains(text(), 'Enviar')]",
-        "//button[contains(text(), 'Enviar Todas')]"
-    ]
-    
-    max_tentativas = 36  # 36 x 5s = 3 minutos
-    for tentativa in range(max_tentativas):
-        print(f"⏳ Tentativa {tentativa + 1}/{max_tentativas}...")
+    try:
+        campo_usuario.clear()
+        campo_usuario.send_keys(login)
+        print(f"✅ Campo usuário preenchido com: {login}")
         
-        for selector in enviar_selectors:
-            try:
-                botao_enviar = driver.find_element(By.XPATH, selector)
-                if botao_enviar.is_displayed() and botao_enviar.is_enabled():
-                    botao_enviar.click()
-                    print("✅ Banners enviados para o Telegram!")
-                    return True
-            except:
-                continue
+        campo_senha.clear() 
+        campo_senha.send_keys(senha)
+        print("✅ Campo senha preenchido")
         
-        time.sleep(5)
+        # Aguarda um pouco
+        time.sleep(1)
+        
+    except Exception as e:
+        print(f"❌ Erro ao preencher: {e}")
+        return False
     
-    raise Exception("Botão de enviar não apareceu após 3 minutos")
+    # 4. TENTAR SUBMETER DE MÚLTIPLAS FORMAS
+    print("\n🚀 TENTANDO SUBMETER FORMULÁRIO...")
+    
+    # Estratégia 1: Botão por texto "ENTRAR"
+    try:
+        botao_entrar = driver.find_element(By.XPATH, "//input[@value='ENTRAR NO PAINEL']")
+        botao_entrar.click()
+        print("✅ Clicou em 'ENTRAR NO PAINEL'")
+        success = True
+    except:
+        success = False
+        print("❌ Botão 'ENTRAR NO PAINEL' não encontrado")
+    
+    # Estratégia 2: Input submit
+    if not success:
+        try:
+            submit_btn = driver.find_element(By.XPATH, "//input[@type='submit']")
+            submit_btn.click()
+            print("✅ Clicou no input submit")
+            success = True
+        except:
+            print("❌ Input submit não encontrado")
+    
+    # Estratégia 3: Botão comum
+    if not success:
+        try:
+            button = driver.find_element(By.TAG_NAME, "button")
+            button.click()
+            print("✅ Clicou no botão")
+            success = True
+        except:
+            print("❌ Botão não encontrado")
+    
+    # Estratégia 4: Enter no campo senha
+    if not success:
+        try:
+            campo_senha.send_keys(Keys.RETURN)
+            print("✅ Pressionou Enter no campo senha")
+            success = True
+        except:
+            print("❌ Enter não funcionou")
+    
+    # Estratégia 5: Submit do formulário via JavaScript
+    if not success:
+        try:
+            driver.execute_script("document.forms[0].submit();")
+            print("✅ Submit via JavaScript")
+            success = True
+        except:
+            print("❌ Submit JavaScript falhou")
+    
+    if not success:
+        print("❌ TODAS as estratégias de submit falharam!")
+        return False
+    
+    # 5. AGUARDAR E VERIFICAR RESULTADO
+    print("\n⏳ AGUARDANDO RESULTADO DO LOGIN...")
+    
+    for i in range(15):
+        time.sleep(1)
+        current_url = driver.current_url
+        page_content = driver.find_element(By.TAG_NAME, "body").text
+        
+        print(f"   {i+1}s - URL: {current_url}")
+        
+        # Verifica se saiu da página de login
+        if "login.php" not in current_url:
+            print("🎉 LOGIN BEM-SUCEDIDO! Redirecionado!")
+            print(f"✅ Nova URL: {current_url}")
+            return True
+        
+        # Verifica se apareceu erro na mesma página
+        if any(palavra in page_content.lower() for palavra in ['erro', 'incorret', 'inválid', 'falhou']):
+            print("❌ LOGIN FALHOU - Erro encontrado na página")
+            print(f"📄 Conteúdo: {page_content[:300]}")
+            return False
+    
+    print("⚠️ Timeout - ainda na página de login após 15s")
+    print(f"📄 Conteúdo atual: {driver.find_element(By.TAG_NAME, 'body').text[:200]}")
+    return False
 
 def main():
-    print("🚀 INICIANDO AUTOMAÇÃO GERADOR PRO")
+    print("🚀 INICIANDO DEBUG COMPLETO DO LOGIN")
     print(f"⏰ Horário: {time.strftime('%d/%m/%Y %H:%M:%S')}")
     
-    # Pega credenciais
     login = os.environ.get("LOGIN")
     senha = os.environ.get("SENHA")
     
@@ -321,35 +226,41 @@ def main():
         return
     
     print(f"🔑 Login: {login}")
+    print(f"🔐 Senha: {'*' * len(senha)}")
     
     driver = setup_driver()
     try:
-        # Fluxo completo
-        fazer_login(driver, login, senha)
-        ir_gerar_futebol(driver)
-        selecionar_modelo_2(driver)
-        gerar_banners_dia_atual(driver)
-        aguardar_e_enviar_telegram(driver)
+        sucesso = debug_login_completo(driver, login, senha)
         
-        print("🎉 AUTOMAÇÃO CONCLUÍDA COM SUCESSO!")
-        print("🔔 Verifique seu canal no Telegram")
-        
+        if sucesso:
+            print("🎉 LOGIN FUNCIONOU! Próximo passo seria procurar o menu...")
+            print(f"📍 URL atual: {driver.current_url}")
+            
+            # Lista o que tem na nova página
+            try:
+                body_text = driver.find_element(By.TAG_NAME, "body").text
+                print("📄 Conteúdo da nova página:")
+                print(f"   {body_text[:500]}...")
+                
+                # Lista links da nova página
+                links = driver.find_elements(By.TAG_NAME, "a")[:10]
+                print(f"\n🔗 {len(links)} links encontrados na nova página:")
+                for i, link in enumerate(links):
+                    text = link.text.strip()[:30]
+                    href = link.get_attribute('href') or 'sem href'
+                    print(f"   {i+1}. '{text}' -> {href}")
+                    
+            except:
+                pass
+        else:
+            print("❌ LOGIN FALHOU!")
+            
     except Exception as e:
-        print(f"❌ ERRO: {str(e)}")
-        print(f"📍 URL atual: {driver.current_url}")
-        
-        # Salva screenshot para debug
-        try:
-            driver.save_screenshot("erro_debug.png")
-            print("📸 Screenshot salva")
-        except:
-            pass
-        
-        raise e
+        print(f"💥 ERRO GERAL: {str(e)}")
         
     finally:
+        print("🔒 Fechando navegador...")
         driver.quit()
-        print("🔒 Navegador fechado")
 
 if __name__ == "__main__":
     main()
