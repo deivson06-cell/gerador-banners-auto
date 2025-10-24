@@ -52,21 +52,21 @@ def ir_gerar_futebol(driver):
     time.sleep(5)
 
 def selecionar_opcoes_futebol(driver):
-    print("🎨 Selecionando Modelo 2 e Jogos de Hoje...")
-    time.sleep(2)
+    print("🎨 Selecionando Modelo 15 e 1. Escolha o Modelo do Banner...")
+    time.sleep(10)
     try:
         elemento = driver.find_element(By.XPATH, "//input[@type='radio' and @value='2']")
         elemento.click()
-        print("✅ Modelo 2 selecionado!")
+        print("✅ Modelo 15 selecionado!")
     except:
-        print("⚠️ Modelo 2 não encontrado, continuando...")
+        print("⚠️ Modelo 15 não encontrado, continuando...")
 
     try:
         elemento = driver.find_element(By.XPATH, "//input[@type='radio' and contains(@value, 'hoje')]")
         elemento.click()
-        print("✅ Jogos de hoje selecionados!")
+        print("✅ 1. Escolha o Modelo do Banner!")
     except:
-        print("⚠️ Seleção de 'hoje' não encontrada, continuando...")
+        print("⚠️ Seleção de '1. Escolha o Modelo do Banner' não encontrada, continuando...")
 
 def gerar_banners(driver):
     print("🔄 Gerando banners...")
