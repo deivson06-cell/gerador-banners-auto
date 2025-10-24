@@ -83,24 +83,27 @@ def gerar_banners(driver):
             break
         except:
             continue
-    time.sleep(10)
+    time.sleep(20)
 
 def aguardar_e_enviar_telegram(driver):
     print("📤 Procurando próximos passos após geração...")
-    time.sleep(5)
+    time.sleep(8)
     print("🎨 Etapa de seleção de cor desativada — pulando para envio!")
 
-    max_tentativas = 20
+    max_tentativas = 40
     estrategias_enviar = [
-        "//button[contains(text(), 'Enviar')]",
-        "//button[contains(text(), 'Telegram')]",
-        "//input[@type='button' and contains(@value, 'Enviar')]",
-        "//a[contains(text(), 'Enviar')]",
-        "//div[contains(text(), 'Enviar') and @onclick]",
-        "//button[contains(@onclick, 'telegram')]",
-        "//button[contains(text(), 'Finalizar')]",
-        "//button[contains(text(), 'Concluir')]"
-    ]
+    "//button[contains(text(), 'Enviar todas as imagens')]",
+    "//button[contains(text(), 'Enviar')]",
+    "//button[contains(text(), 'Telegram')]",
+    "//input[@type='button' and contains(@value, 'Enviar todas as imagens')]",
+    "//input[@type='button' and contains(@value, 'Enviar')]",
+    "//a[contains(text(), 'Enviar todas as imagens')]",
+    "//a[contains(text(), 'Enviar')]",
+    "//div[contains(text(), 'Enviar') and @onclick]",
+    "//button[contains(@onclick, 'telegram')]",
+    "//button[contains(text(), 'Finalizar')]",
+    "//button[contains(text(), 'Concluir')]"
+]
 
     for tentativa in range(max_tentativas):
         for strategy in estrategias_enviar:
