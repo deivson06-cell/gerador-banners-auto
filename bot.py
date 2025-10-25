@@ -42,7 +42,7 @@ print("📤 Clique no botão 'Enviar todas as imagens' realizado com sucesso!")
 # Esperar um tempo pra dar tempo do envio ser processado
 time.sleep(10)
 WebDriverWait(driver, 10).until(lambda d: "index.php" in d.current_url)
-    print("✅ Login bem-sucedido!")
+print("✅ Login bem-sucedido!")
 
 def acessar_gerar_futebol(driver):
     print("⚽ Acessando menu 'Gerar Futebol'...")
