@@ -29,8 +29,18 @@ def fazer_login(driver, login, senha):
 
     driver.find_element(By.NAME, "username").send_keys(login)
     driver.find_element(By.NAME, "password").send_keys(senha)
-    driver.find_element(By.XPATH, "//button[@type='submit']").click()
+    # Esperar o botão "Enviar todas as imagens" aparecer e estar clicável
+print("🚀 Aguardando botão 'Enviar todas as imagens'...")
+botao_enviar = WebDriverWait(driver, 30).until(
+    EC.element_to_be_clickable((By.XPATH, "//*[contains(text(), 'Enviar todas as imagens')]"))
+)
 
+# Fazer o clique via JavaScript (garante execução mesmo se o site usar eventos JS modernos)
+driver.execute_script("arguments[0].click();", botao_enviar)
+print("📤 Clique no botão 'Enviar todas as imagens' realizado com sucesso!")
+
+# Esperar um tempo pra dar tempo do envio ser processado
+time.sleep(10)
     WebDriverWait(driver, 10).until(lambda d: "index.php" in d.current_url)
     print("✅ Login bem-sucedido!")
 
