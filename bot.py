@@ -57,7 +57,7 @@ def ir_gerar_futebol(driver):
     print("⚽ Indo para Gerar Futebol...")
     
     # Aguarda a página carregar completamente
-    time.sleep(3)
+    time.sleep(8)
     
     # Múltiplas estratégias para encontrar e clicar no link
     estrategias = [
@@ -76,7 +76,7 @@ def ir_gerar_futebol(driver):
         "//li[contains(text(), 'Gerar Futebol')]",
         
         # Por posição (pode ser o terceiro link)
-        "(//a)[3]",
+        "(//a)[8]",
         
         # Menu items
         "//nav//a[contains(text(), 'Gerar Futebol')]",
@@ -178,15 +178,15 @@ def debug_pagina_futebol(driver):
             if type_attr in ['radio', 'checkbox']:
                 print(f"   {i+1}. type='{type_attr}' name='{name}' value='{value}'")
         
-        # Procura por texto relacionado a modelos
+        # Procura por texto relacionado a 1. Escolha o Modelo do Banner
         if "modelo" in body_text.lower():
-            print("\n🎨 Palavra 'modelo' encontrada na página!")
+            print("\n🎨 Palavra '1. Escolha o Modelo do Banner' encontrada na página!")
         if "2" in body_text:
-            print("🔢 Número '2' encontrado na página!")
+            print("🔢 Número '15' encontrado na página!")
         if "hoje" in body_text.lower():
-            print("📅 Palavra 'hoje' encontrada na página!")
+            print("📅 Palavra 'gerar banners' encontrada na página!")
         if "gerar" in body_text.lower():
-            print("🔄 Palavra 'gerar' encontrada na página!")
+            print("🔄 Palavra 'ok' encontrada na página!")
         if "telegram" in body_text.lower():
             print("📤 Palavra 'telegram' encontrada na página!")
             
@@ -200,27 +200,27 @@ def selecionar_opcoes_futebol(driver):
     debug_pagina_futebol(driver)
     
     # Aguarda um pouco para garantir que carregou
-    time.sleep(2)
+    time.sleep(8)
     
-    # Estratégias para selecionar Modelo 2
-    print("\n🎨 Tentando selecionar Modelo 2...")
+    # Estratégias para selecionar Modelo 15
+    print("\n🎨 Tentando selecionar Modelo 15...")
     modelo_selecionado = False
     
     estrategias_modelo = [
         # Radio buttons
-        "//input[@type='radio' and @value='2']",
-        "//input[@type='radio' and contains(@name, 'modelo') and @value='2']",
-        "//input[@type='radio'][2]",  # Segundo radio button
+        "//input[@type='radio' and @value='15']",
+        "//input[@type='radio' and contains(@name, 'modelo') and @value='15']",
+        "//input[@type='radio'][15]",  # Segundo radio button
         
         # Select dropdown
-        "//select//option[@value='2']",
-        "//select//option[contains(text(), '2')]",
-        "//select//option[contains(text(), 'Modelo 2')]",
+        "//select//option[@value='15']",
+        "//select//option[contains(text(), '15')]",
+        "//select//option[contains(text(), 'Modelo 15')]",
         
         # Buttons ou divs clicáveis
-        "//button[contains(text(), '2')]",
-        "//div[contains(text(), 'Modelo 2')]",
-        "//label[contains(text(), 'Modelo 2')]",
+        "//button[contains(text(), '15')]",
+        "//div[contains(text(), 'Modelo 15')]",
+        "//label[contains(text(), 'Modelo 15')]",
     ]
     
     for i, strategy in enumerate(estrategias_modelo):
@@ -238,7 +238,7 @@ def selecionar_opcoes_futebol(driver):
                 elemento.click()
             
             modelo_selecionado = True
-            print("✅ Modelo 2 selecionado!")
+            print("✅ Modelo 15 selecionado!")
             break
             
         except Exception as e:
@@ -246,28 +246,28 @@ def selecionar_opcoes_futebol(driver):
             continue
     
     if not modelo_selecionado:
-        print("⚠️ Modelo 2 não encontrado, continuando sem seleção...")
+        print("⚠️ Modelo 15 não encontrado, continuando sem seleção...")
     
     time.sleep(1)
     
-    # Estratégias para selecionar "Hoje" / "Dia atual"
-    print("\n📅 Tentando selecionar jogos de hoje...")
+    # Estratégias para selecionar "gerar banners"
+    print("\n📅 Tentando selecionar gerar banners...")
     dia_selecionado = False
     
     estrategias_dia = [
         # Radio buttons
-        "//input[@type='radio' and contains(@value, 'hoje')]",
-        "//input[@type='radio' and contains(@value, 'today')]",
-        "//input[@type='radio'][1]",  # Primeiro radio button (pode ser "hoje")
+        "//input[@type='radio' and contains(@value, 'gerar banners')]",
+        "//input[@type='radio' and contains(@value, 'gerar banners')]",
+        "//input[@type='radio'][1]",  # Primeiro radio button (pode ser "gerar banners")
         
         # Select dropdown
-        "//select//option[contains(text(), 'Hoje')]",
-        "//select//option[contains(text(), 'hoje')]",
+        "//select//option[contains(text(), 'gerar banners')]",
+        "//select//option[contains(text(), 'gerar banners')]",
         "//select//option[contains(text(), 'Dia')]",
         
         # Buttons
-        "//button[contains(text(), 'Hoje')]",
-        "//button[contains(text(), 'hoje')]",
+        "//button[contains(text(), 'gerar banners')]",
+        "//button[contains(text(), 'gerar banners')]",
     ]
     
     for i, strategy in enumerate(estrategias_dia):
@@ -283,7 +283,7 @@ def selecionar_opcoes_futebol(driver):
                 elemento.click()
             
             dia_selecionado = True
-            print("✅ Jogos de hoje selecionados!")
+            print("✅ gerar banners!")
             break
             
         except Exception as e:
@@ -291,26 +291,26 @@ def selecionar_opcoes_futebol(driver):
             continue
     
     if not dia_selecionado:
-        print("⚠️ Seleção de 'hoje' não encontrada, continuando...")
+        print("⚠️ Seleção de 'gerar banners' não encontrada, continuando...")
     
     time.sleep(1)
 
 def gerar_banners(driver):
-    print("🔄 Procurando botão Gerar...")
+    print("🔄 ok...")
     
-    # Múltiplas estratégias para encontrar o botão gerar
+    # Múltiplas estratégias para encontrar o ok
     estrategias_gerar = [
-        "//button[contains(text(), 'Gerar')]",
-        "//input[@type='submit' and contains(@value, 'Gerar')]",
+        "//button[contains(text(), 'ok')]",
+        "//input[@type='submit' and contains(@value, 'ok')]",
         "//button[@type='submit']",
         "//input[@type='submit']",
-        "//button[contains(text(), 'GERAR')]",
-        "//div[contains(text(), 'Gerar') and @onclick]",
-        "//a[contains(text(), 'Gerar')]",
+        "//button[contains(text(), 'ok')]",
+        "//div[contains(text(), 'ok') and @onclick]",
+        "//a[contains(text(), 'ok')]",
     ]
     
     botao_clicado = False
-    for i, strategy in enumerate(estrategias_gerar):
+    for i, strategy in enumerate(estrategias_ok):
         try:
             print(f"🔍 Tentativa {i+1}: {strategy}")
             botao = WebDriverWait(driver, 3).until(
@@ -318,7 +318,7 @@ def gerar_banners(driver):
             )
             botao.click()
             botao_clicado = True
-            print("✅ Botão Gerar clicado!")
+            print("✅ ok!")
             break
             
         except Exception as e:
@@ -326,7 +326,7 @@ def gerar_banners(driver):
             continue
     
     if not botao_clicado:
-        raise Exception("Botão Gerar não encontrado!")
+        raise Exception("Botão ok não encontrado!")
     
     print("⏳ Aguardando geração dos banners...")
     # Aguarda um tempo para a geração começar
@@ -337,83 +337,20 @@ def aguardar_e_enviar_telegram(driver):
     
     # Primeiro, aguarda um pouco para ver se aparece algo
     time.sleep(5)
-    
-    # Verifica se apareceu seleção de cores ou outras opções
-    print("🎨 Verificando se apareceram opções de cores...")
-    
-    opcoes_cores = [
-        "//button[contains(@style, 'background') or contains(@class, 'cor')]",
-        "//div[contains(@class, 'cor') or contains(@class, 'color')]", 
-        "//button[contains(text(), 'Cor') or contains(text(), 'cor')]",
-        "//div[contains(text(), 'Escolha') and contains(text(), 'cor')]",
-        "//input[@type='radio' and contains(@name, 'cor')]",
-        "//select[contains(@name, 'cor') or contains(@id, 'cor')]",
-        "//button[contains(@onclick, 'cor')]"
-    ]
-    
-    cor_selecionada = False
-    for i, strategy in enumerate(opcoes_cores):
-        try:
-            print(f"🔍 Procurando cores - estratégia {i+1}")
-            elementos_cor = driver.find_elements(By.XPATH, strategy)
-            if elementos_cor:
-                print(f"✅ Encontrou {len(elementos_cor)} opções de cor!")
-                # Clica na primeira cor disponível (geralmente padrão)
-                elementos_cor[0].click()
-                cor_selecionada = True
-                print("✅ Cor selecionada (primeira opção)")
-                time.sleep(2)
-                break
-        except:
-            continue
-    
-    if not cor_selecionada:
-        print("⚠️ Nenhuma seleção de cor encontrada")
-    
-    # Procura por botões de confirmação/continuar após seleção de cor
-    print("🔄 Procurando botão de confirmação...")
-    
-    botoes_confirmacao = [
-        "//button[contains(text(), 'Confirmar')]",
-        "//button[contains(text(), 'Continuar')]", 
-        "//button[contains(text(), 'Avançar')]",
-        "//button[contains(text(), 'Próximo')]",
-        "//button[contains(text(), 'OK')]",
-        "//input[@type='submit']",
-        "//button[@type='submit']"
-    ]
-    
-    confirmacao_clicada = False
-    for i, strategy in enumerate(botoes_confirmacao):
-        try:
-            print(f"🔍 Procurando confirmação - estratégia {i+1}")
-            botao = WebDriverWait(driver, 3).until(
-                EC.element_to_be_clickable((By.XPATH, strategy))
-            )
-            botao.click()
-            confirmacao_clicada = True
-            print("✅ Botão de confirmação clicado!")
-            time.sleep(3)
-            break
-        except:
-            continue
-    
-    if not confirmacao_clicada:
-        print("⚠️ Nenhum botão de confirmação encontrado")
-    
-    # Agora procura pelo botão de envio para Telegram
-    print("📤 Procurando botão de envio para Telegram...")
+        
+    # Agora procura pelo botão de enviar todas imagens
+    print("📤 Procurando botão de enviar todas imagnes...")
     
     max_tentativas = 20  # Reduzido para 20 tentativas (1min 40s)
     
     estrategias_enviar = [
         "//button[contains(text(), 'Enviar')]",
-        "//button[contains(text(), 'Telegram')]",
+        "//button[contains(text(), 'Todas imangens')]",
         "//button[contains(text(), 'ENVIAR')]",
         "//input[@type='button' and contains(@value, 'Enviar')]",
         "//a[contains(text(), 'Enviar')]",
         "//div[contains(text(), 'Enviar') and @onclick]",
-        "//button[contains(@onclick, 'telegram')]",
+        "//button[contains(@onclick, 'todas imagens')]",
         "//button[contains(text(), 'Finalizar')]",
         "//button[contains(text(), 'Concluir')]"
     ]
@@ -497,7 +434,7 @@ def main():
         ir_gerar_futebol(driver)
         selecionar_opcoes_futebol(driver)
         gerar_banners(driver)
-        
+        selecionar_ok
         sucesso_envio = aguardar_e_enviar_telegram(driver)
         
         if sucesso_envio:
