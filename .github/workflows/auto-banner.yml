@@ -1,18 +1,29 @@
-name: Banners Automático
+name: Gerador Pro Automation
+
 on:
+  workflow_dispatch:       # Permite rodar manualmente
   schedule:
-    - cron: '0 13 * * *'
-  workflow_dispatch:
+    - cron: "0 */2 * * *"  # Executa a cada 2 horas (ajuste como quiser)
+
 jobs:
   run:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-    - run: pip install selenium webdriver-manager
-    - run: python bot.py
-      env:
-        LOGIN: ${{ secrets.LOGIN }}
-        SENHA: ${{ secrets.SENHA }}
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Instalar Python e dependências
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependências
+        run: |
+          pip install selenium msedge-selenium-tools webdriver-manager
+
+      - name: Executar automação Gerador Pro
+        env:
+          GERADOR_USER: ${{ secrets.GERADOR_USER }}
+          GERADOR_PASS: ${{ secrets.GERADOR_PASS }}
+        run: python geradorpro_envio.py
