@@ -23,7 +23,4 @@ jobs:
           pip install selenium msedge-selenium-tools webdriver-manager
 
       - name: Executar automação Gerador Pro
-        env:
-          GERADOR_USER: ${{ secrets.GERADOR_USER }}
-          GERADOR_PASS: ${{ secrets.GERADOR_PASS }}
-        run: python geradorpro_envio.py
+        run: python bot.py
