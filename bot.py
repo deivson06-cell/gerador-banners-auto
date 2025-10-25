@@ -104,18 +104,13 @@ def gerar_banner(driver):
     except:
         print("⚠️ Botão 'OK' não apareceu, continuando...")
 
-    # Clicar em "Enviar todas as imagens"
-    try:
-        enviar_btn = WebDriverWait(driver, 20).until(
-            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Enviar todas as imagens')]"))
-        )
-        enviar_btn.click()
-        print("✅ Botão 'Enviar todas as imagens' clicado!")
-        print("🎉 Banners enviados com sucesso para o Telegram!")
-        return True
-    except:
-        print("❌ Não encontrei o botão 'Enviar todas as imagens'.")
-        return False
+    def enviar_todas_imagens(driver):
+    print("🚀 Aguardando botão 'Enviar todas as imagens'...")
+    botao_enviar = WebDriverWait(driver, 30).until(
+        EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Enviar todas as imagens')]"))
+    )
+    botao_enviar.click()
+    print("✅ Botão 'Enviar todas as imagens' clicado!")
 
 def main():
     print("🚀 INICIANDO AUTOMAÇÃO COMPLETA - GERADOR PRO")
