@@ -168,7 +168,7 @@ def main():
 
 if __name__ == "__main__":
     main()
- Passos finais:
+Passos finais:
 Cole seu token do bot no TELEGRAM_BOT_TOKEN = "8032336208:AAGVgZoOqxuoaKLv56QJX4A9DirBXQEjbSU"
 
 Configure suas variáveis de ambiente LOGIN e SENHA com seu usuário do site:
