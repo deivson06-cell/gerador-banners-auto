@@ -20,7 +20,13 @@ jobs:
 
       - name: Instalar dependências
         run: |
+          python -m pip install --upgrade pip
           pip install selenium msedge-selenium-tools webdriver-manager
 
       - name: Executar automação Gerador Pro
-        run: python bot.py
+        env:
+          LOGIN: $(( secrets.LOGIN ))
+          SENHA: $(( secrets.SENHA ))
+          TELEGRAM_BOT_TOKEN: $(( secrets.TELEGRAM_BOT_TOKEN ))
+        run: 
+          python bot.py
