@@ -162,30 +162,32 @@ def main():
     except Exception as e:
         caminho = salvar_print(driver, "erro_geral")
         enviar_telegram(f"❌ Erro geral no script: {e}. Print: {caminho}")
-    finally:
-        driver.quit()
-        print("🔒 Navegador fechado")
+finally:
+    driver.quit()
+    print("🔒 Navegador fechado")
 
 if __name__ == "__main__":
     main()
-Passos finais:
-Cole seu token do bot no TELEGRAM_BOT_TOKEN = "8032336208:AAGVgZoOqxuoaKLv56QJX4A9DirBXQEjbSU"
 
-Configure suas variáveis de ambiente LOGIN e SENHA com seu usuário do site:
-
-bash
-Copiar código
-export LOGIN="seu_usuario"
-export SENHA="sua_senha"
-(ou no Windows use set LOGIN=seu_usuario)
-
-Instale dependências:
-
-bash
-Copiar código
-pip install selenium webdriver_manager requests
-Rode:
-
-bash
-Copiar código
-python nome_do_arquivo.py
+# ------------------------------------------------------------
+# 🧩 Passos finais (anotações)
+#
+# Cole seu token do bot no código:
+# TELEGRAM_BOT_TOKEN = "8032336208:AAGVgZoOqxuoaKLv56QJX4A9DirBXQEjbSU"
+#
+# Configure suas variáveis de ambiente LOGIN e SENHA com seu usuário do site:
+# 
+# Linux/macOS:
+# export LOGIN="seu_usuario"
+# export SENHA="sua_senha"
+#
+# Windows (Prompt de Comando):
+# set LOGIN=seu_usuario
+# set SENHA=sua_senha
+#
+# Instale as dependências:
+# pip install selenium webdriver_manager requests
+#
+# Rode o script localmente (caso queira testar fora do GitHub Actions):
+# python bot.py
+# ------------------------------------------------------------
