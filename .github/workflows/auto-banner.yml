@@ -2,8 +2,7 @@ name: AutoGerar Futebol
 
 on:
   schedule:
-    # roda às 09:00 BRT -> 12:00 UTC (ajuste se quiser outra hora)
-    - cron: "0 12 * * *"
+    - cron: "0 12 * * *"  # executa às 09:00 horário de Brasília
   workflow_dispatch:
 
 jobs:
