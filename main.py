@@ -1,48 +1,41 @@
-name: Envio Automático de Banners
+name: AutoGerar Futebol
 
 on:
   schedule:
-    # Executa todos os dias às 10:00 (horário de Brasília = 13:00 UTC)
-    - cron: '0 13 * * *'
-  
-  # Permite executar manualmente pelo GitHub
+    - cron: "0 12 * * *"  # executa às 09:00 horário de Brasília
   workflow_dispatch:
 
 jobs:
-  gerar-e-enviar-banners:
+  run:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: 📥 Checkout do código
-      uses: actions/checkout@v4
-    
-    - name: 🐍 Configurar Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-    
-    - name: 📦 Instalar dependências
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-    
-    - name: 🔧 Instalar Google Chrome
-      run: |
-        wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-        sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
-        sudo apt-get update
-        sudo apt-get install -y google-chrome-stable
-    
-    - name: 🚀 Executar automação
-      env:
-        LOGIN: ${{ secrets.LOGIN }}
-        SENHA: ${{ secrets.SENHA }}
-      run: python main.py
-    
-    - name: 📤 Upload de screenshots (em caso de erro)
-      if: failure()
-      uses: actions/upload-artifact@v3
-      with:
-        name: prints-erro
-        path: prints/
-        retention-days: 7
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install selenium webdriver-manager requests
+
+      - name: Instalar Google Chrome
+        run: |
+          sudo apt update
+          sudo apt install -y wget gnupg
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+          sudo apt update
+          sudo apt install -y google-chrome-stable
+
+      - name: Executar automação
+        env:
+          LOGIN: ${{ secrets.LOGIN }}
+          SENHA: ${{ secrets.SENHA }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: python main.py
