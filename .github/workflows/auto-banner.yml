@@ -8,21 +8,22 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
+
     steps:
-      - name: 📂 Checkout
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 🐍 Setup Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: 🧩 Instalar dependências
+      - name: Instalar dependências
         run: |
           python -m pip install --upgrade pip
           pip install selenium webdriver-manager requests
 
-      - name: 🧰 Instalar Google Chrome
+      - name: Instalar Google Chrome
         run: |
           sudo apt update
           sudo apt install -y wget gnupg
@@ -31,10 +32,8 @@ jobs:
           sudo apt update
           sudo apt install -y google-chrome-stable
 
-      - name: ⚙️ Executar automação
+      - name: Executar automação
         env:
           LOGIN: ${{ secrets.LOGIN }}
           SENHA: ${{ secrets.SENHA }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          CHAT_ID: ${{ secrets.CHAT_ID }}
-        run: python main.py
+          TELEGRAM_BOT_
