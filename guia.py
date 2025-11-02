@@ -7,21 +7,14 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
-# ==========================
-# 🔧 CONFIGURAÇÃO DO CHROME
-# ==========================
 def setup_driver():
     opts = Options()
     opts.add_argument("--headless")
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
     opts.add_argument("--window-size=1920,1080")
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=opts)
-    return driver
+    return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=opts)
 
-# ==========================
-# 💬 ENVIO AO TELEGRAM
-# ==========================
 def enviar_telegram(texto):
     token = "7872091942:AAHbvXRGtdomQxgyKDAkuk1SoLULx0B9xEg"
     chat_id = "-1002169364087"
@@ -30,11 +23,8 @@ def enviar_telegram(texto):
     r = requests.post(url, data=data)
     print("📨 Envio Telegram:", r.status_code)
     if r.status_code != 200:
-        print("❌ Erro ao enviar:", r.text)
+        print("❌ Erro:", r.text)
 
-# ==========================
-# 🚀 FLUXO PRINCIPAL
-# ==========================
 def main():
     print("🚀 Iniciando captura do texto dos jogos...")
     driver = setup_driver()
@@ -59,25 +49,37 @@ def main():
         WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.LINK_TEXT, "Gerar Futebol"))).click()
         print("⚽ Página Futebol aberta")
 
-        # aguarda botão "Copiar texto"
-        botao_copiar = WebDriverWait(driver, 25).until(
+        # botão copiar texto
+        copiar_btn = WebDriverWait(driver, 25).until(
             EC.presence_of_element_located((By.XPATH, "//button[contains(., 'Copiar texto')]"))
         )
-        print("📋 Botão 'Copiar texto' encontrado")
+        driver.execute_script("arguments[0].click();", copiar_btn)
+        print("📋 Botão 'Copiar texto' clicado")
 
-        # tenta pegar o conteúdo do botão
-        texto = (
-            botao_copiar.get_attribute("data-clipboard-text")
-            or botao_copiar.get_attribute("onclick")
-            or botao_copiar.text
-        )
+        # executa JS pra ler o conteúdo da área de transferência
+        time.sleep(2)
+        texto = driver.execute_script("""
+            return navigator.clipboard.readText()
+                .then(t => t)
+                .catch(e => '');
+        """)
 
-        if texto and len(texto.strip()) > 10:
-            print("📝 Texto capturado diretamente do botão:")
+        # fallback se o navegador não permitir clipboard API
+        if not texto:
+            print("⚠️ Clipboard API não retornou texto. Tentando capturar via DOM alternativo...")
+            elementos = driver.find_elements(By.XPATH, "//textarea | //pre | //div | //p")
+            for el in elementos:
+                val = el.get_attribute("value") or el.text
+                if val and "📆" in val:
+                    texto = val
+                    break
+
+        if texto:
+            print("📝 Texto copiado com sucesso:")
             print(texto[:400], "...")
             enviar_telegram(texto)
         else:
-            print("⚠️ Nenhum texto encontrado dentro do botão. Pode ser que o site gere o texto após outra ação.")
+            print("⚠️ Nenhum texto capturado — pode ter falhado o acesso ao clipboard.")
 
     except Exception as e:
         print("❌ Erro geral:", e)
