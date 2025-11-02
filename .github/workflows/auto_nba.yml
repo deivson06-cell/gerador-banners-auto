@@ -1,34 +1,44 @@
-name: Auto NBA Banners
+name: AutoGerar Futebol
 
 on:
   schedule:
-    - cron: '40 13 * * *'  # executa às 10:40 horário de Brasília (13:40 UTC)
-  workflow_dispatch:
+    - cron: '30 12 * * *'  # 12:30 UTC = 09:30 Brasília
+  workflow_dispatch:  # Permite execução manual
 
 jobs:
   run:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: 📂 Checkout do repositório
-        uses: actions/checkout@v4
-
-      - name: 🐍 Configurar Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: 📦 Instalar dependências
-        run: |
-          pip install selenium webdriver-manager requests
-
-      - name: 🧩 Instalar Google Chrome e WebDriver
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable chromium-driver
-
-      - name: ⚙️ Executar automação NBA
-        env:
-          LOGIN: ${{ secrets.LOGIN }}
-          SENHA: ${{ secrets.SENHA }}
-        run: python auto_texto_nba.py
+    - name: Checkout
+      uses: actions/checkout@v3
+    
+    - name: Instalar Chrome
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y chromium-browser chromium-chromedriver
+    
+    - name: Configurar Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Instalar dependências
+      run: |
+        pip install selenium requests
+    
+    - name: Executar automação
+      env:
+        BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+        CHAT_ID: ${{ secrets.CHAT_ID }}
+        LOGIN: ${{ secrets.LOGIN }}
+        SENHA: ${{ secrets.SENHA }}
+      run: python main.py
+    
+    - name: Upload prints
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: screenshots
+        path: prints/
+        if-no-files-found: ignore
