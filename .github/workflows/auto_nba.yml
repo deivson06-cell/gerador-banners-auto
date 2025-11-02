@@ -2,8 +2,8 @@ name: AutoGerar NBA
 
 on:
   schedule:
-    - cron: '30 12 * * *'  # 12:30 UTC = 09:30 Brasília
-  workflow_dispatch:  # Execução manual
+    - cron: '30 12 * * *'  # 09:30 Brasília
+  workflow_dispatch:
 
 jobs:
   run:
@@ -23,9 +23,8 @@ jobs:
       with:
         python-version: '3.10'
     
-    - name: Instalar dependências
-      run: |
-        pip install selenium requests
+    - name: Instalar apenas Selenium e Requests
+      run: pip install selenium requests
     
     - name: Executar automação NBA
       env:
@@ -35,7 +34,7 @@ jobs:
         SENHA: ${{ secrets.SENHA }}
       run: python main.py
     
-    - name: Upload prints NBA
+    - name: Upload prints
       if: always()
       uses: actions/upload-artifact@v4
       with:
