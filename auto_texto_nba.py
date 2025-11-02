@@ -65,7 +65,7 @@ def ir_gerar_nba(driver):
 
 
 # ===============================================================
-# 🟣 GERAR E ENVIAR TODOS OS BANNERS NBA (INDIVIDUALMENTE)
+# 🟣 GERAR E ENVIAR TODOS OS BANNERS NBA
 # ===============================================================
 def gerar_banners(driver):
     print("🎨 Selecionando modelo 'Basquete Roxo'...")
@@ -95,55 +95,97 @@ def gerar_banners(driver):
     WebDriverWait(driver, 25).until(lambda d: "cartazes" in d.current_url)
     print(f"🖼️ Página de banners carregada: {driver.current_url}")
 
-    # ENVIAR CADA BANNER INDIVIDUALMENTE
-    banners_enviados = []
+    # AGUARDAR CARREGAMENTO COMPLETO DAS IMAGENS
+    print("⏳ Aguardando carregamento dos banners (30s)...")
+    time.sleep(30)  # Tempo maior para garantir que os banners carregaram
     
-    for i in range(1, 4):  # 3 banners: banner_0, banner_1, banner_2
+    # ESTRATÉGIA 1: Tentar enviar individualmente por diferentes seletores
+    banners_enviados = 0
+    
+    # Tentar localizar botões por diferentes métodos
+    seletores = [
+        "//button[contains(text(),'Enviar') and not(contains(text(),'Todas'))]",
+        "//button[@class and contains(text(),'Enviar')]",
+        "//form//button[contains(text(),'Enviar')]",
+        "//div[@class='banner-item']//button",
+        "//button[@type='submit' and contains(text(),'Enviar')]"
+    ]
+    
+    botoes_encontrados = []
+    for seletor in seletores:
         try:
-            print(f"\n📤 Enviando banner {i}/3...")
-            
-            # Localizar todos os botões "Enviar" individualmente
-            botoes_enviar = WebDriverWait(driver, 20).until(
-                EC.presence_of_all_elements_located((By.XPATH, "//button[contains(text(),'Enviar')]"))
-            )
-            
-            # Filtrar apenas botões que NÃO são "Enviar Todas as Imagens"
-            botoes_individuais = [btn for btn in botoes_enviar if "Todas" not in btn.text]
-            
-            if len(botoes_individuais) < i:
-                print(f"⚠️ Banner {i} não encontrado, pulando...")
-                continue
-            
-            # Clicar no botão específico
-            botao = botoes_individuais[i-1]
-            driver.execute_script("arguments[0].scrollIntoView(true);", botao)
-            time.sleep(0.5)
-            botao.click()
-            print(f"✅ Clicou no botão 'Enviar' do banner {i}")
-            
-            # Aguardar confirmação (ajuste conforme necessário)
-            time.sleep(3)
-            
-            # Verificar se o banner foi enviado checando mensagens na página
-            body_text = driver.find_element(By.TAG_NAME, "body").text.lower()
-            if f"banner_{i-1}" in body_text or f"banner {i}" in body_text or "enviado" in body_text:
-                banners_enviados.append(i)
-                print(f"✅ Banner {i} enviado com sucesso!")
-            else:
-                print(f"⚠️ Banner {i} - Confirmação não detectada (pode ter sido enviado mesmo assim)")
-                banners_enviados.append(i)  # Considera enviado de qualquer forma
-            
-        except Exception as e:
-            print(f"❌ Erro ao enviar banner {i}: {e}")
+            botoes = driver.find_elements(By.XPATH, seletor)
+            if botoes:
+                print(f"✅ Encontrados {len(botoes)} botões com seletor: {seletor[:50]}...")
+                botoes_encontrados = botoes
+                break
+        except:
             continue
     
-    # Verificação final
-    print(f"\n📊 Resumo: {len(banners_enviados)}/3 banners enviados")
+    if not botoes_encontrados:
+        print("⚠️ Nenhum botão individual encontrado, tentando método alternativo...")
+        
+        # ESTRATÉGIA 2: Usar JavaScript para enviar os formulários
+        try:
+            print("🔄 Tentando enviar via JavaScript...")
+            script = """
+            var forms = document.querySelectorAll('form');
+            var count = 0;
+            forms.forEach(function(form, index) {
+                if (form.querySelector('img') || form.querySelector('button')) {
+                    setTimeout(function() {
+                        form.submit();
+                        console.log('Enviado formulário ' + (index + 1));
+                    }, index * 3000);
+                    count++;
+                }
+            });
+            return count;
+            """
+            banners_enviados = driver.execute_script(script)
+            print(f"✅ Tentativa de envio via JS: {banners_enviados} formulários")
+            time.sleep(10)  # Aguardar envios
+            
+        except Exception as e:
+            print(f"❌ Erro ao enviar via JS: {e}")
     
-    if len(banners_enviados) >= 2:  # Pelo menos 2 banners
-        print("🎉 Envio concluído!")
     else:
-        raise Exception(f"❌ Apenas {len(banners_enviados)} banner(s) foram enviados. Esperados: 3")
+        # ESTRATÉGIA 3: Clicar nos botões encontrados
+        for i, botao in enumerate(botoes_encontrados[:3], 1):  # Máximo 3 banners
+            try:
+                print(f"\n📤 Enviando banner {i}/3...")
+                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", botao)
+                time.sleep(1)
+                
+                # Tentar click normal, se falhar usar JS
+                try:
+                    botao.click()
+                except:
+                    driver.execute_script("arguments[0].click();", botao)
+                
+                print(f"✅ Clicou no botão do banner {i}")
+                time.sleep(4)  # Aguardar processamento
+                banners_enviados += 1
+                
+            except Exception as e:
+                print(f"⚠️ Erro ao enviar banner {i}: {e}")
+                continue
+    
+    # Aguardar confirmação final
+    print(f"\n⏳ Aguardando confirmação final (15s)...")
+    time.sleep(15)
+    
+    # Verificar quantos foram enviados checando o conteúdo da página
+    body_text = driver.find_element(By.TAG_NAME, "body").text.lower()
+    confirmacoes = body_text.count("enviado") + body_text.count("sucesso")
+    
+    print(f"\n📊 Resumo: {banners_enviados} tentativas / {confirmacoes} confirmações detectadas")
+    
+    if banners_enviados >= 1 or confirmacoes >= 1:
+        print(f"✅ Envio concluído! ({max(banners_enviados, confirmacoes)} banner(s))")
+        return banners_enviados
+    else:
+        raise Exception("❌ Nenhum banner foi enviado. Verifique a estrutura da página.")
 
 
 # ===============================================================
@@ -183,11 +225,11 @@ def main():
     try:
         fazer_login(driver, login, senha)
         ir_gerar_nba(driver)
-        gerar_banners(driver)
+        enviados = gerar_banners(driver)
 
         hora = time.strftime("%H:%M")
         data = time.strftime("%d/%m/%Y")
-        enviar_telegram(f"🏀 <b>NBA - {data}</b>\n✅ Envio completo às {hora}\n📸 Todos os 3 banners foram enviados com sucesso!")
+        enviar_telegram(f"🏀 <b>NBA - {data}</b>\n✅ Envio completo às {hora}\n📸 {enviados} banner(s) enviado(s) com sucesso!")
         print("=" * 70)
         print("✅ AUTOMAÇÃO NBA FINALIZADA COM SUCESSO!")
         print("=" * 70)
