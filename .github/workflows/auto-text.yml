@@ -1,0 +1,30 @@
+name: Auto Texto Jogos
+
+on:
+  schedule:
+    - cron: "10 12 * * *"  # executa 09:10 horário de Brasília (12:10 UTC)
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📂 Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: 🧩 Instalar Google Chrome
+        run: |
+          sudo apt update
+          sudo apt install -y google-chrome-stable chromium-driver
+
+      - name: 🐍 Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 📦 Instalar dependências
+        run: pip install selenium webdriver-manager requests
+
+      - name: ⚙️ Executar automação do texto
+        run: python guia.py
