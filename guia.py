@@ -1,5 +1,6 @@
 import time
 import os
+import sys
 import requests
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -11,65 +12,137 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from webdriver_manager.chrome import ChromeDriverManager
 
 # ==================== CONFIGURAÇÕES ====================
-# IMPORTANTE: Use variáveis de ambiente para credenciais em produção
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "7872091942:AAHbvXRGtdomQxgyKDAkuk1SoLULx0B9xEg")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "-1002169364087")
 LOGIN_USER = os.getenv("LOGIN_USER", "deivson06")
 LOGIN_PASS = os.getenv("LOGIN_PASS", "F9416280")
 
+def validar_credenciais():
+    """Valida se as credenciais estão configuradas"""
+    print("\n🔍 VALIDANDO CREDENCIAIS:")
+    print(f"   Token Telegram: {'✅ Configurado' if TELEGRAM_TOKEN else '❌ Não encontrado'}")
+    print(f"   Chat ID: {'✅ Configurado' if TELEGRAM_CHAT_ID else '❌ Não encontrado'}")
+    print(f"   Login User: {'✅ Configurado' if LOGIN_USER else '❌ Não encontrado'}")
+    print(f"   Login Pass: {'✅ Configurado' if LOGIN_PASS else '❌ Não encontrado'}")
+    
+    if not all([TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, LOGIN_USER, LOGIN_PASS]):
+        print("\n❌ ERRO: Credenciais incompletas!")
+        sys.exit(1)
+    
+    print("✅ Todas as credenciais estão configuradas\n")
+
 def setup_driver():
     """Configura e retorna o driver do Chrome"""
+    print("🔧 Configurando Chrome Driver...")
     opts = Options()
-    opts.add_argument("--headless")
+    opts.add_argument("--headless=new")
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
     opts.add_argument("--window-size=1920,1080")
     opts.add_argument("--disable-blink-features=AutomationControlled")
+    opts.add_argument("--disable-gpu")
+    opts.add_argument("--enable-clipboard")
     opts.add_experimental_option("excludeSwitches", ["enable-automation"])
     opts.add_experimental_option('useAutomationExtension', False)
-    
-    # Necessário para acesso ao clipboard
-    opts.add_argument("--enable-clipboard")
     
     driver = webdriver.Chrome(
         service=Service(ChromeDriverManager().install()), 
         options=opts
     )
+    print("✅ Chrome Driver configurado")
     return driver
 
-def enviar_telegram(texto):
-    """Envia mensagem para o Telegram"""
+def testar_telegram():
+    """Testa se o bot do Telegram está funcionando"""
+    print("\n🧪 TESTANDO CONEXÃO COM TELEGRAM...")
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getMe"
+    
+    try:
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            bot_info = r.json()
+            if bot_info.get("ok"):
+                print(f"✅ Bot conectado: @{bot_info['result']['username']}")
+                return True
+            else:
+                print(f"❌ Erro na resposta do bot: {bot_info}")
+                return False
+        else:
+            print(f"❌ Erro HTTP {r.status_code}: {r.text}")
+            return False
+    except Exception as e:
+        print(f"❌ Erro ao testar Telegram: {e}")
+        return False
+
+def enviar_telegram(texto, force_send=False):
+    """Envia mensagem para o Telegram com validação"""
+    if not texto and not force_send:
+        print("⚠️ Texto vazio, não enviando ao Telegram")
+        return False
+    
+    print(f"\n📤 ENVIANDO PARA TELEGRAM...")
+    print(f"   Tamanho da mensagem: {len(texto)} caracteres")
+    print(f"   Chat ID: {TELEGRAM_CHAT_ID}")
+    
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     
     # Divide mensagem se for muito grande (limite Telegram: 4096 chars)
     max_length = 4000
+    partes = []
+    
     if len(texto) > max_length:
+        print(f"   ⚠️ Mensagem será dividida em partes")
         partes = [texto[i:i+max_length] for i in range(0, len(texto), max_length)]
-        for i, parte in enumerate(partes):
-            data = {
-                "chat_id": TELEGRAM_CHAT_ID, 
-                "text": f"📊 Parte {i+1}/{len(partes)}\n\n{parte}", 
-                "parse_mode": "Markdown"
-            }
-            r = requests.post(url, data=data)
-            print(f"📨 Envio Telegram (parte {i+1}): {r.status_code}")
-            if r.status_code != 200:
-                print(f"❌ Erro: {r.text}")
-            time.sleep(0.5)  # Evita rate limit
     else:
-        data = {"chat_id": TELEGRAM_CHAT_ID, "text": texto, "parse_mode": "Markdown"}
-        r = requests.post(url, data=data)
-        print(f"📨 Envio Telegram: {r.status_code}")
-        if r.status_code != 200:
-            print(f"❌ Erro: {r.text}")
-        return r.status_code == 200
+        partes = [texto]
+    
+    sucesso = True
+    for i, parte in enumerate(partes):
+        if len(partes) > 1:
+            mensagem = f"📊 *Parte {i+1}/{len(partes)}*\n\n{parte}"
+        else:
+            mensagem = parte
+        
+        data = {
+            "chat_id": TELEGRAM_CHAT_ID, 
+            "text": mensagem, 
+            "parse_mode": "Markdown"
+        }
+        
+        try:
+            print(f"\n   Enviando parte {i+1}/{len(partes)}...")
+            r = requests.post(url, data=data, timeout=15)
+            
+            print(f"   Status Code: {r.status_code}")
+            
+            if r.status_code == 200:
+                resp = r.json()
+                if resp.get("ok"):
+                    print(f"   ✅ Parte {i+1} enviada com sucesso!")
+                else:
+                    print(f"   ❌ Erro na resposta: {resp}")
+                    sucesso = False
+            else:
+                print(f"   ❌ Erro HTTP {r.status_code}")
+                print(f"   Resposta: {r.text}")
+                sucesso = False
+            
+            if len(partes) > 1:
+                time.sleep(1)  # Evita rate limit
+                
+        except Exception as e:
+            print(f"   ❌ Exceção ao enviar: {e}")
+            sucesso = False
+    
+    return sucesso
 
 def fazer_login(driver):
     """Realiza o login no site"""
-    print("🔐 Iniciando login...")
+    print("\n🔐 INICIANDO LOGIN...")
     
     try:
         # Aguarda campo de usuário
+        print("   Aguardando campo de usuário...")
         user_input = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((
                 By.XPATH, 
@@ -78,49 +151,78 @@ def fazer_login(driver):
         )
         user_input.clear()
         user_input.send_keys(LOGIN_USER)
-        print(f"✅ Usuário '{LOGIN_USER}' inserido")
+        print(f"   ✅ Usuário '{LOGIN_USER}' inserido")
         
         # Campo de senha
+        print("   Inserindo senha...")
         pwd_input = driver.find_element(
             By.XPATH, 
             "//input[@type='password' or contains(@placeholder,'Senha')]"
         )
         pwd_input.clear()
         pwd_input.send_keys(LOGIN_PASS)
-        print("✅ Senha inserida")
+        print("   ✅ Senha inserida")
         
         # Botão de login
+        print("   Clicando em login...")
         login_btn = driver.find_element(
             By.XPATH, 
             "//button[contains(.,'Entrar') or contains(.,'Login') or @type='submit']"
         )
         login_btn.click()
-        print("✅ Botão de login clicado")
+        print("   ✅ Botão clicado")
         
-        time.sleep(3)  # Aguarda redirecionamento
-        return True
+        time.sleep(4)
+        
+        # Verifica se login foi bem-sucedido
+        current_url = driver.current_url
+        print(f"   URL atual: {current_url}")
+        
+        if "login" not in current_url.lower():
+            print("✅ LOGIN BEM-SUCEDIDO")
+            return True
+        else:
+            print("⚠️ Ainda na página de login - pode ter falhado")
+            # Salva screenshot
+            driver.save_screenshot("login_failed.png")
+            print("   📸 Screenshot salvo: login_failed.png")
+            return False
         
     except Exception as e:
         print(f"❌ Erro no login: {e}")
+        try:
+            driver.save_screenshot("login_error.png")
+            print("   📸 Screenshot salvo: login_error.png")
+        except:
+            pass
         return False
 
 def capturar_texto_jogos(driver):
     """Captura o texto dos jogos usando múltiplos métodos"""
-    print("⚽ Navegando para página de futebol...")
+    print("\n⚽ NAVEGANDO PARA PÁGINA DE FUTEBOL...")
     
     try:
         # Clica no link "Gerar Futebol"
+        print("   Procurando link 'Gerar Futebol'...")
         link_futebol = WebDriverWait(driver, 20).until(
             EC.element_to_be_clickable((By.LINK_TEXT, "Gerar Futebol"))
         )
         link_futebol.click()
-        print("✅ Página de futebol aberta")
+        print("   ✅ Link clicado")
         
-        time.sleep(3)  # Aguarda carregamento da página
+        time.sleep(4)
         
-        # MÉTODO 1: Tentar clicar no botão "Copiar texto"
+        current_url = driver.current_url
+        print(f"   URL atual: {current_url}")
+        
+        # Salva screenshot para debug
+        driver.save_screenshot("pagina_futebol.png")
+        print("   📸 Screenshot salvo: pagina_futebol.png")
+        
+        # MÉTODO 1: Botão "Copiar texto" + Clipboard
+        print("\n🔍 MÉTODO 1: Botão Copiar + Clipboard")
         try:
-            copiar_btn = WebDriverWait(driver, 15).until(
+            copiar_btn = WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((
                     By.XPATH, 
                     "//button[contains(., 'Copiar texto') or contains(., 'Copiar') or contains(@onclick, 'copiar')]"
@@ -129,11 +231,10 @@ def capturar_texto_jogos(driver):
             driver.execute_script("arguments[0].scrollIntoView(true);", copiar_btn)
             time.sleep(1)
             driver.execute_script("arguments[0].click();", copiar_btn)
-            print("📋 Botão 'Copiar texto' clicado")
+            print("   ✅ Botão clicado")
             
             time.sleep(2)
             
-            # Tenta ler do clipboard
             texto = driver.execute_script("""
                 return navigator.clipboard.readText()
                     .then(t => t)
@@ -141,46 +242,61 @@ def capturar_texto_jogos(driver):
             """)
             
             if texto and len(texto) > 50:
-                print("✅ Texto capturado via clipboard")
+                print(f"   ✅ SUCESSO! Capturado {len(texto)} caracteres")
                 return texto
+            else:
+                print(f"   ⚠️ Clipboard retornou texto curto ou vazio: {len(texto) if texto else 0} chars")
                 
         except TimeoutException:
-            print("⚠️ Botão 'Copiar texto' não encontrado")
+            print("   ⚠️ Botão não encontrado")
+        except Exception as e:
+            print(f"   ⚠️ Erro: {e}")
         
-        # MÉTODO 2: Buscar em textareas
-        print("🔍 Tentando capturar via textarea...")
+        # MÉTODO 2: Textareas
+        print("\n🔍 MÉTODO 2: Textareas")
         textareas = driver.find_elements(By.TAG_NAME, "textarea")
-        for ta in textareas:
+        print(f"   Encontradas {len(textareas)} textareas")
+        
+        for i, ta in enumerate(textareas):
             texto = ta.get_attribute("value") or ta.text
-            if texto and len(texto) > 50 and any(x in texto for x in ["📆", "⚽", "vs", "×"]):
-                print("✅ Texto capturado via textarea")
-                return texto
+            if texto:
+                print(f"   Textarea {i+1}: {len(texto)} caracteres")
+                if len(texto) > 50 and any(x in texto for x in ["📆", "⚽", "vs", "×", "Rodada"]):
+                    print(f"   ✅ SUCESSO! Texto relevante encontrado")
+                    return texto
         
-        # MÉTODO 3: Buscar em divs/pre com conteúdo relevante
-        print("🔍 Tentando capturar via elementos DOM...")
+        # MÉTODO 3: Elementos DOM
+        print("\n🔍 MÉTODO 3: Elementos DOM (pre, div, code)")
         elementos = driver.find_elements(By.XPATH, 
-            "//pre | //div[@class] | //div[@id] | //code"
+            "//pre | //div[contains(@class, 'text') or contains(@class, 'content') or contains(@class, 'jogos')] | //code"
         )
+        print(f"   Encontrados {len(elementos)} elementos")
         
-        for el in elementos:
+        for i, el in enumerate(elementos):
             texto = el.text
-            if texto and len(texto) > 100 and any(x in texto for x in ["📆", "⚽", "vs", "×", "Rodada"]):
-                print("✅ Texto capturado via elemento DOM")
-                return texto
+            if texto and len(texto) > 100:
+                print(f"   Elemento {i+1}: {len(texto)} caracteres")
+                if any(x in texto for x in ["📆", "⚽", "vs", "×", "Rodada", "Campeonato"]):
+                    print(f"   ✅ SUCESSO! Texto relevante encontrado")
+                    return texto
         
-        # MÉTODO 4: Captura todo o body como último recurso
-        print("⚠️ Tentando capturar body completo...")
+        # MÉTODO 4: Body completo
+        print("\n🔍 MÉTODO 4: Body completo (último recurso)")
         body_text = driver.find_element(By.TAG_NAME, "body").text
+        print(f"   Body: {len(body_text)} caracteres")
+        
         if body_text and len(body_text) > 100:
-            print("⚠️ Texto capturado do body (pode conter elementos extras)")
+            print("   ⚠️ Retornando body completo")
             return body_text
         
-        print("❌ Nenhum texto foi capturado por nenhum método")
+        print("\n❌ NENHUM MÉTODO CAPTUROU TEXTO VÁLIDO")
         return None
         
     except Exception as e:
-        print(f"❌ Erro ao capturar texto: {e}")
-        # Salva screenshot para debug
+        print(f"\n❌ ERRO GERAL na captura: {e}")
+        import traceback
+        traceback.print_exc()
+        
         try:
             driver.save_screenshot("erro_captura.png")
             print("📸 Screenshot salvo: erro_captura.png")
@@ -190,62 +306,78 @@ def capturar_texto_jogos(driver):
 
 def main():
     """Função principal"""
-    print("=" * 60)
-    print("🚀 INICIANDO CAPTURA DE JOGOS DE FUTEBOL")
-    print("=" * 60)
+    print("\n" + "=" * 70)
+    print("🚀 INICIANDO AUTOMAÇÃO - CAPTURA JOGOS DE FUTEBOL")
+    print("=" * 70)
+    
+    # Valida credenciais
+    validar_credenciais()
+    
+    # Testa Telegram
+    if not testar_telegram():
+        print("\n⚠️ AVISO: Problemas na conexão com Telegram, mas continuando...")
     
     driver = None
     
     try:
-        # Configura o driver
+        # Configura driver
         driver = setup_driver()
-        print("✅ Driver configurado")
         
-        # Acessa a página de login
+        # Acessa página de login
+        print("\n🌐 ACESSANDO SITE...")
         driver.get("https://gerador.pro/login.php")
-        print("✅ Página de login carregada")
+        print(f"   URL carregada: {driver.current_url}")
+        time.sleep(2)
         
         # Faz login
         if not fazer_login(driver):
-            print("❌ Falha no login. Abortando...")
+            erro_msg = "❌ *FALHA NO LOGIN*\nVerifique as credenciais!"
+            print(f"\n{erro_msg}")
+            enviar_telegram(erro_msg, force_send=True)
             return
         
-        # Captura o texto dos jogos
+        # Captura texto
         texto = capturar_texto_jogos(driver)
         
-        if texto:
-            print("\n" + "=" * 60)
-            print("📝 TEXTO CAPTURADO:")
-            print("=" * 60)
-            print(texto[:500] + "..." if len(texto) > 500 else texto)
-            print("=" * 60)
-            print(f"📏 Tamanho total: {len(texto)} caracteres\n")
+        if texto and len(texto) > 50:
+            print("\n" + "=" * 70)
+            print("📝 TEXTO CAPTURADO COM SUCESSO")
+            print("=" * 70)
+            print(f"Tamanho: {len(texto)} caracteres")
+            print("\nPrévio (primeiros 300 chars):")
+            print("-" * 70)
+            print(texto[:300] + "..." if len(texto) > 300 else texto)
+            print("=" * 70)
             
-            # Envia para o Telegram
-            enviar_telegram(texto)
-            print("✅ Processo concluído com sucesso!")
+            # Envia para Telegram
+            if enviar_telegram(texto):
+                print("\n✅ PROCESSO CONCLUÍDO COM SUCESSO! 🎉")
+            else:
+                print("\n⚠️ Texto capturado, mas falha ao enviar ao Telegram")
         else:
-            print("❌ Falha ao capturar texto dos jogos")
-            enviar_telegram("⚠️ *Alerta:* Falha ao capturar texto dos jogos de futebol.")
+            erro_msg = "⚠️ *ALERTA*\nNão foi possível capturar o texto dos jogos.\nVerifique os logs do GitHub Actions."
+            print(f"\n{erro_msg}")
+            enviar_telegram(erro_msg, force_send=True)
     
     except Exception as e:
-        print(f"❌ Erro geral: {e}")
+        print(f"\n❌ ERRO CRÍTICO: {e}")
         import traceback
         traceback.print_exc()
         
+        erro_msg = f"❌ *ERRO CRÍTICO NO SCRIPT*\n\n```\n{str(e)[:200]}\n```"
         try:
-            enviar_telegram(f"❌ *Erro no script:*\n```\n{str(e)}\n```")
+            enviar_telegram(erro_msg, force_send=True)
         except:
-            pass
+            print("❌ Não foi possível enviar notificação de erro ao Telegram")
     
     finally:
         if driver:
             driver.quit()
             print("\n🔒 Navegador fechado")
         
-        print("=" * 60)
+        print("\n" + "=" * 70)
         print("🏁 EXECUÇÃO FINALIZADA")
-        print("=" * 60)
+        print("=" * 70 + "\n")
 
 if __name__ == "__main__":
     main()
