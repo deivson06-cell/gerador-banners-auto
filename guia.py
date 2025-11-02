@@ -319,61 +319,119 @@ def fazer_login(driver):
 
 def capturar_texto_jogos(driver):
     """Captura o texto dos jogos usando múltiplos métodos"""
-    print("\n⚽ NAVEGANDO PARA PÁGINA DE FUTEBOL...")
+    print("\n⚽ NAVEGANDO PARA GUIA FUTEBOL...")
     
     try:
-        # Clica no link "Gerar Futebol"
-        print("   Procurando link 'Gerar Futebol'...")
-        link_futebol = WebDriverWait(driver, 20).until(
-            EC.element_to_be_clickable((By.LINK_TEXT, "Gerar Futebol"))
-        )
-        link_futebol.click()
-        print("   ✅ Link clicado")
-        
-        time.sleep(4)
+        # MÉTODO 1: Tentar acessar diretamente pela URL
+        print("   Tentando acesso direto pela URL...")
+        driver.get("https://gerador.pro/guitexto.php")
+        time.sleep(5)
         
         current_url = driver.current_url
         print(f"   URL atual: {current_url}")
         
-        # Salva screenshot para debug
+        # Se não funcionou, tenta pelo menu
+        if "guitexto" not in current_url:
+            print("   ⚠️ URL direta falhou, tentando pelo menu...")
+            
+            # Procura pelo link "Guia Futebol" no menu
+            try:
+                link_guia = WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.LINK_TEXT, "Guia Futebol"))
+                )
+                link_guia.click()
+                print("   ✅ Link 'Guia Futebol' clicado")
+                time.sleep(5)
+            except:
+                # Tenta outros seletores
+                try:
+                    link_guia = driver.find_element(By.XPATH, "//a[contains(text(), 'Guia Futebol') or contains(@href, 'guitexto')]")
+                    link_guia.click()
+                    print("   ✅ Link alternativo clicado")
+                    time.sleep(5)
+                except Exception as e:
+                    print(f"   ❌ Erro ao clicar no link: {e}")
+                    return None
+        
+        # Salva screenshot da página
         driver.save_screenshot("pagina_futebol.png")
         print("   📸 Screenshot salvo: pagina_futebol.png")
         
-        # MÉTODO 1: Botão "Copiar texto" + Clipboard
-        print("\n🔍 MÉTODO 1: Botão Copiar + Clipboard")
+        current_url = driver.current_url
+        print(f"   URL final: {current_url}")
+        
+        # Verifica se há erro na página
+        page_text = driver.find_element(By.TAG_NAME, "body").text
+        if "Não foi possível carregar os jogos" in page_text:
+            print("   ⚠️ Página mostra erro: 'Não foi possível carregar os jogos'")
+            print("   Tentando aguardar carregamento...")
+            time.sleep(5)
+            driver.refresh()
+            time.sleep(5)
+        
+        # MÉTODO 1: Botão "Copiar Texto"
+        print("\n🔍 MÉTODO 1: Procurando botão 'Copiar Texto'")
         try:
-            copiar_btn = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((
-                    By.XPATH, 
-                    "//button[contains(., 'Copiar texto') or contains(., 'Copiar') or contains(@onclick, 'copiar')]"
-                ))
-            )
-            driver.execute_script("arguments[0].scrollIntoView(true);", copiar_btn)
-            time.sleep(1)
-            driver.execute_script("arguments[0].click();", copiar_btn)
-            print("   ✅ Botão clicado")
+            # Espera um pouco para o JavaScript carregar
+            time.sleep(3)
             
-            time.sleep(2)
+            # Múltiplos seletores para o botão
+            selectores_copiar = [
+                "//button[contains(text(), 'Copiar Texto')]",
+                "//button[contains(text(), 'Copiar texto')]",
+                "//button[contains(text(), 'COPIAR TEXTO')]",
+                "//button[contains(@onclick, 'copiar')]",
+                "//button[contains(@class, 'copiar')]",
+                "//a[contains(text(), 'Copiar Texto')]",
+                "//*[contains(text(), 'Copiar Texto')]"
+            ]
             
-            texto = driver.execute_script("""
-                return navigator.clipboard.readText()
-                    .then(t => t)
-                    .catch(e => '');
-            """)
+            copiar_btn = None
+            for selector in selectores_copiar:
+                try:
+                    copiar_btn = WebDriverWait(driver, 5).until(
+                        EC.presence_of_element_located((By.XPATH, selector))
+                    )
+                    print(f"   ✅ Botão encontrado com: {selector}")
+                    break
+                except:
+                    continue
             
-            if texto and len(texto) > 50:
-                print(f"   ✅ SUCESSO! Capturado {len(texto)} caracteres")
-                return texto
-            else:
-                print(f"   ⚠️ Clipboard retornou texto curto ou vazio: {len(texto) if texto else 0} chars")
+            if copiar_btn:
+                # Scroll até o botão
+                driver.execute_script("arguments[0].scrollIntoView(true);", copiar_btn)
+                time.sleep(1)
                 
-        except TimeoutException:
-            print("   ⚠️ Botão não encontrado")
+                # Salva screenshot antes de clicar
+                driver.save_screenshot("antes_copiar.png")
+                print("   📸 Screenshot antes de copiar: antes_copiar.png")
+                
+                # Clica no botão
+                driver.execute_script("arguments[0].click();", copiar_btn)
+                print("   ✅ Botão 'Copiar Texto' clicado")
+                
+                time.sleep(3)
+                
+                # Tenta ler do clipboard
+                texto = driver.execute_script("""
+                    return navigator.clipboard.readText()
+                        .then(t => t)
+                        .catch(e => '');
+                """)
+                
+                if texto and len(texto) > 50:
+                    print(f"   ✅ SUCESSO! Capturado {len(texto)} caracteres via clipboard")
+                    return texto
+                else:
+                    print(f"   ⚠️ Clipboard retornou texto curto: {len(texto) if texto else 0} chars")
+            else:
+                print("   ⚠️ Botão 'Copiar Texto' não encontrado")
+                
         except Exception as e:
-            print(f"   ⚠️ Erro: {e}")
+            print(f"   ⚠️ Erro no método 1: {e}")
         
         # MÉTODO 2: Textareas
-        print("\n🔍 MÉTODO 2: Textareas")
+        print("\n🔍 MÉTODO 2: Procurando em textareas")
         textareas = driver.find_elements(By.TAG_NAME, "textarea")
         print(f"   Encontradas {len(textareas)} textareas")
         
@@ -381,35 +439,73 @@ def capturar_texto_jogos(driver):
             texto = ta.get_attribute("value") or ta.text
             if texto:
                 print(f"   Textarea {i+1}: {len(texto)} caracteres")
-                if len(texto) > 50 and any(x in texto for x in ["📆", "⚽", "vs", "×", "Rodada"]):
-                    print(f"   ✅ SUCESSO! Texto relevante encontrado")
+                # Verifica se tem conteúdo de jogos
+                if len(texto) > 50 and any(x in texto for x in ["⚽", "vs", "×", "Rodada", "Campeonato", "📆", "🏟️"]):
+                    print(f"   ✅ SUCESSO! Texto relevante encontrado em textarea")
                     return texto
         
-        # MÉTODO 3: Elementos DOM
-        print("\n🔍 MÉTODO 3: Elementos DOM (pre, div, code)")
-        elementos = driver.find_elements(By.XPATH, 
-            "//pre | //div[contains(@class, 'text') or contains(@class, 'content') or contains(@class, 'jogos')] | //code"
-        )
-        print(f"   Encontrados {len(elementos)} elementos")
+        # MÉTODO 3: Elementos DOM específicos
+        print("\n🔍 MÉTODO 3: Procurando em elementos DOM")
         
-        for i, el in enumerate(elementos):
-            texto = el.text
+        # Seletores específicos para a página
+        selectores_texto = [
+            "//div[contains(@class, 'jogos')]",
+            "//div[contains(@class, 'texto')]",
+            "//div[contains(@class, 'content')]",
+            "//div[contains(@id, 'texto')]",
+            "//div[contains(@id, 'jogos')]",
+            "//pre",
+            "//code"
+        ]
+        
+        for selector in selectores_texto:
+            try:
+                elementos = driver.find_elements(By.XPATH, selector)
+                for el in elementos:
+                    texto = el.text
+                    if texto and len(texto) > 100:
+                        if any(x in texto for x in ["⚽", "vs", "×", "Rodada", "Campeonato", "📆"]):
+                            print(f"   ✅ SUCESSO! Encontrado com {selector}")
+                            return texto
+            except:
+                continue
+        
+        # MÉTODO 4: Captura TODO o texto da área principal
+        print("\n🔍 MÉTODO 4: Capturando área de conteúdo principal")
+        try:
+            # Tenta encontrar o container principal
+            main_content = driver.find_element(By.XPATH, "//main | //div[@class='container'] | //div[@id='content']")
+            texto = main_content.text
+            
             if texto and len(texto) > 100:
-                print(f"   Elemento {i+1}: {len(texto)} caracteres")
-                if any(x in texto for x in ["📆", "⚽", "vs", "×", "Rodada", "Campeonato"]):
-                    print(f"   ✅ SUCESSO! Texto relevante encontrado")
-                    return texto
+                print(f"   ⚠️ Capturado conteúdo principal: {len(texto)} caracteres")
+                return texto
+        except:
+            pass
         
-        # MÉTODO 4: Body completo
-        print("\n🔍 MÉTODO 4: Body completo (último recurso)")
+        # MÉTODO 5: Body completo (último recurso)
+        print("\n🔍 MÉTODO 5: Body completo (último recurso)")
         body_text = driver.find_element(By.TAG_NAME, "body").text
         print(f"   Body: {len(body_text)} caracteres")
         
         if body_text and len(body_text) > 100:
+            # Filtra apenas texto relevante
+            linhas = body_text.split('\n')
+            texto_filtrado = '\n'.join([l for l in linhas if any(x in l for x in ["⚽", "vs", "×", "📆", ":", "-"])])
+            
+            if texto_filtrado:
+                print(f"   ⚠️ Texto filtrado do body: {len(texto_filtrado)} caracteres")
+                return texto_filtrado
+            
             print("   ⚠️ Retornando body completo")
             return body_text
         
         print("\n❌ NENHUM MÉTODO CAPTUROU TEXTO VÁLIDO")
+        
+        # Debug: mostra o que está na página
+        print("\n📄 CONTEÚDO DA PÁGINA (primeiros 500 chars):")
+        print(driver.find_element(By.TAG_NAME, "body").text[:500])
+        
         return None
         
     except Exception as e:
