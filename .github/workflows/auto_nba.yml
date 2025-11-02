@@ -1,8 +1,8 @@
-name: AutoGerar Futebol
+name: AutoGerar NBA
 
 on:
   schedule:
-    - cron: '30 12 * * *'  # 12:30 UTC = 09:30 Brasília
+    - cron: '30 12 * * *'  # 12:30 UTC = 09:30 Brasília (todos os dias)
   workflow_dispatch:  # Permite execução manual
 
 jobs:
@@ -27,7 +27,7 @@ jobs:
       run: |
         pip install selenium requests
     
-    - name: Executar automação
+    - name: Executar automação NBA
       env:
         BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
         CHAT_ID: ${{ secrets.CHAT_ID }}
@@ -35,10 +35,10 @@ jobs:
         SENHA: ${{ secrets.SENHA }}
       run: python main.py
     
-    - name: Upload prints
+    - name: Upload prints NBA
       if: always()
       uses: actions/upload-artifact@v3
       with:
-        name: screenshots
+        name: screenshots-nba
         path: prints/
         if-no-files-found: ignore
