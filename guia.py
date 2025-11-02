@@ -19,7 +19,8 @@ def enviar_telegram(texto):
     token = "7872091942:AAHbvXRGtdomQxgyKDAkuk1SoLULx0B9xEg"
     chat_id = "-1002169364087"
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    r = requests.post(url, data={"chat_id": chat_id, "text": texto, "parse_mode": "Markdown"})
+    data = {"chat_id": chat_id, "text": texto, "parse_mode": "Markdown"}
+    r = requests.post(url, data=data)
     print("📨 Envio Telegram:", r.status_code)
     if r.status_code != 200:
         print("❌ Erro:", r.text)
@@ -48,35 +49,32 @@ def main():
         WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.LINK_TEXT, "Gerar Futebol"))).click()
         print("⚽ Página Futebol aberta")
 
-        # esperar botão "Copiar texto"
-        WebDriverWait(driver, 25).until(
+        # aguarda aparecer o botão de copiar texto
+        copiar_btn = WebDriverWait(driver, 25).until(
             EC.presence_of_element_located((By.XPATH, "//button[contains(., 'Copiar texto')]"))
         )
         time.sleep(2)
+        copiar_btn.click()
+        print("📋 Botão 'Copiar texto' clicado")
 
-        # capturar texto de todos os tipos possíveis
+        # Espera um instante para o texto carregar na tela
+        time.sleep(3)
+
+        # Procura texto visível no corpo da página (qualquer div, pre, textarea)
         texto = ""
-        candidatos = driver.find_elements(By.XPATH, "//textarea | //input[@type='text'] | //div[contains(@class,'form-control')]")
-        for el in candidatos:
-            val = el.get_attribute("value") or el.text
-            if val and len(val) > 30 and "📆" in val:
-                texto = val
+        elementos = driver.find_elements(By.XPATH, "//textarea | //pre | //div | //p")
+        for el in elementos:
+            conteudo = el.get_attribute("value") or el.text
+            if conteudo and "📆" in conteudo:
+                texto = conteudo.strip()
                 break
-
-        # tentativa extra: conteúdo direto do botão
-        if not texto:
-            try:
-                copiar = driver.find_element(By.XPATH, "//button[contains(., 'Copiar texto')]")
-                texto = copiar.get_attribute("data-clipboard-text") or copiar.get_attribute("onclick") or ""
-            except:
-                pass
 
         if texto:
             print("📝 Texto capturado com sucesso!")
-            print(texto[:400], "...")
+            print(texto[:300], "...")
             enviar_telegram(texto)
         else:
-            print("⚠️ Nenhum texto encontrado na página — pode ser que o site gere o texto após clicar em outro botão.")
+            print("⚠️ Nenhum texto detectado após clicar em 'Copiar texto'.")
 
     except Exception as e:
         print("❌ Erro geral:", e)
