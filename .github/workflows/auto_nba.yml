@@ -2,42 +2,43 @@ name: AutoGerar NBA
 
 on:
   schedule:
-    - cron: '30 12 * * *'  # 09:30 Brasília
-  workflow_dispatch:
+    - cron: '30 12 * * *'  # Executa todos os dias às 09:30 (horário de Brasília)
+  workflow_dispatch:  # Permite execução manual
 
 jobs:
   run:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout
+    - name: 📂 Checkout do repositório
       uses: actions/checkout@v4
     
-    - name: Instalar Chrome
+    - name: 🧩 Instalar Google Chrome e Chromedriver
       run: |
         sudo apt-get update
         sudo apt-get install -y chromium-browser chromium-chromedriver
     
-    - name: Configurar Python
+    - name: 🐍 Configurar Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.10'
+        python-version: '3.11'
     
-    - name: Instalar apenas Selenium e Requests
-      run: pip install selenium requests
+    - name: 📦 Instalar dependências
+      run: |
+        pip install selenium requests webdriver-manager
     
-    - name: Executar automação NBA
+    - name: 🏀 Executar automação NBA
       env:
         BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
         CHAT_ID: ${{ secrets.CHAT_ID }}
         LOGIN: ${{ secrets.LOGIN }}
         SENHA: ${{ secrets.SENHA }}
-      run: python main.py
+      run: python nba.py
     
-    - name: Upload prints
+    - name: 📸 Upload de prints
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: screenshots-nba
+        name: screenshots
         path: prints/
         if-no-files-found: ignore
