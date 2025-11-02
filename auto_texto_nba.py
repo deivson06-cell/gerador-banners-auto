@@ -25,7 +25,6 @@ def setup_driver():
         "Chrome/130.0.0.0 Safari/537.36"
     )
     options.add_argument("--disable-blink-features=AutomationControlled")
-
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
     driver.execute_cdp_cmd("Network.setUserAgentOverride", {
@@ -46,7 +45,6 @@ def setup_driver():
 def fazer_login(driver, login, senha):
     print("🔑 Fazendo login no GERADOR PRO...")
     driver.get("https://gerador.pro/login.php")
-
     WebDriverWait(driver, 25).until(EC.presence_of_element_located((By.NAME, "username"))).send_keys(login)
     driver.find_element(By.NAME, "password").send_keys(senha)
     driver.find_element(By.XPATH, "//button[@type='submit']").click()
@@ -65,7 +63,7 @@ def ir_gerar_nba(driver):
 
 
 # ===============================================================
-# 🟣 GERAR E ENVIAR TODOS OS BANNERS NBA
+# 🟣 GERAR BANNERS E BAIXAR LINKS
 # ===============================================================
 def gerar_banners(driver):
     print("🎨 Selecionando modelo 'Basquete Roxo'...")
@@ -73,7 +71,6 @@ def gerar_banners(driver):
         EC.element_to_be_clickable((By.XPATH, "//*[contains(text(),'Basquete Roxo')]"))
     )
     driver.execute_script("arguments[0].scrollIntoView(true);", botao_roxo)
-    time.sleep(1)
     botao_roxo.click()
     print("✅ Clicou em 'Basquete Roxo'")
 
@@ -95,48 +92,43 @@ def gerar_banners(driver):
     WebDriverWait(driver, 25).until(lambda d: "cartazes" in d.current_url)
     print(f"🖼️ Página de banners carregada: {driver.current_url}")
 
-    enviar_btn = WebDriverWait(driver, 25).until(
-        EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Enviar Todas as Imagens')]"))
-    )
-    driver.execute_script("arguments[0].scrollIntoView(true);", enviar_btn)
-    enviar_btn.click()
-    print("📤 Iniciando envio de todas as imagens...")
+    # Captura todos os links de imagem
+    print("🔍 Capturando links das imagens geradas...")
+    time.sleep(3)
+    imagens = driver.find_elements(By.XPATH, "//img[contains(@src, 'cartazes')]")
+    urls = []
+    for img in imagens:
+        src = img.get_attribute("src")
+        if src and "cartazes" in src and src.endswith(".png"):
+            urls.append(src)
 
-    # Aguardar os 3 banners serem carregados
-    print("⏳ Aguardando confirmação dos banners (até 90s)...")
-    enviados = False
-    for i in range(90):
-        body = driver.find_element(By.TAG_NAME, "body").text.lower()
-        if "banner_2.png" in body or "banner 2" in body:
-            enviados = True
-            break
-        time.sleep(1)
-
-    if enviados:
-        print("🎉 Todos os banners NBA foram enviados com sucesso!")
-    else:
-        raise Exception("❌ Timeout - Nem todos os banners apareceram no painel.")
+    print(f"✅ {len(urls)} imagens encontradas.")
+    return urls
 
 
 # ===============================================================
-# 📢 TELEGRAM
+# 📤 ENVIAR AS IMAGENS PRO TELEGRAM
 # ===============================================================
-def enviar_telegram(msg):
+def enviar_imagens_telegram(urls):
     token = os.environ.get("BOT_TOKEN")
     chat_id = os.environ.get("CHAT_ID")
     if not token or not chat_id:
         print("⚠️ Bot Token ou Chat ID não configurados.")
         return
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    data = {"chat_id": chat_id, "text": msg, "parse_mode": "HTML"}
-    try:
-        r = requests.post(url, data=data)
-        if r.status_code == 200:
-            print("📨 Mensagem enviada ao Telegram!")
-        else:
-            print(f"⚠️ Telegram retornou {r.status_code}: {r.text}")
-    except Exception as e:
-        print(f"❌ Erro ao enviar mensagem: {e}")
+
+    for i, url in enumerate(urls, 1):
+        try:
+            print(f"📸 Enviando imagem {i}: {url}")
+            response = requests.get(url)
+            if response.status_code == 200:
+                photo = response.content
+                api_url = f"https://api.telegram.org/bot{token}/sendPhoto"
+                files = {"photo": ("banner.png", photo)}
+                data = {"chat_id": chat_id, "caption": f"🏀 Banner NBA {i}"}
+                requests.post(api_url, data=data, files=files)
+                time.sleep(2)
+        except Exception as e:
+            print(f"❌ Erro ao enviar imagem {i}: {e}")
 
 
 # ===============================================================
@@ -155,11 +147,14 @@ def main():
     try:
         fazer_login(driver, login, senha)
         ir_gerar_nba(driver)
-        gerar_banners(driver)
+        urls = gerar_banners(driver)
 
-        hora = time.strftime("%H:%M")
-        data = time.strftime("%d/%m/%Y")
-        enviar_telegram(f"🏀 <b>NBA - {data}</b>\n✅ Envio completo às {hora}\n📸 Todos os 3 banners foram enviados com sucesso!")
+        if urls:
+            enviar_imagens_telegram(urls)
+            enviar_telegram(f"🏀✅ Envio concluído: {len(urls)} banners NBA enviados com sucesso!")
+        else:
+            enviar_telegram("⚠️ Nenhum banner encontrado para envio!")
+
         print("=" * 70)
         print("✅ AUTOMAÇÃO NBA FINALIZADA COM SUCESSO!")
         print("=" * 70)
@@ -170,6 +165,23 @@ def main():
     finally:
         driver.quit()
         print("🔒 Navegador fechado")
+
+
+# ===============================================================
+# 📨 MENSAGEM SIMPLES TELEGRAM
+# ===============================================================
+def enviar_telegram(msg):
+    token = os.environ.get("BOT_TOKEN")
+    chat_id = os.environ.get("CHAT_ID")
+    if not token or not chat_id:
+        print("⚠️ Bot Token ou Chat ID não configurados.")
+        return
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    data = {"chat_id": chat_id, "text": msg, "parse_mode": "HTML"}
+    try:
+        requests.post(url, data=data)
+    except:
+        pass
 
 
 if __name__ == "__main__":
