@@ -1,246 +1,245 @@
-import os, time, requests
+import os
+import sys
+import time
+import traceback
+import requests
 from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import TimeoutException
 
-# ===============================================================
-# ⚙️ CONFIGURAÇÃO DO NAVEGADOR
-# ===============================================================
-def setup_driver():
-    print("🔧 Configurando Chrome headless...")
-    options = Options()
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1920,1080")
-    options.add_argument(
-        "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/130.0.0.0 Safari/537.36"
-    )
-    options.add_argument("--disable-blink-features=AutomationControlled")
+# ===============================
+# 🔧 CONFIGURAÇÕES
+# ===============================
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
+CHAT_ID = os.environ.get("CHAT_ID", "")
+LOGIN = os.environ.get("LOGIN", "")
+SENHA = os.environ.get("SENHA", "")
 
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=options)
-    driver.execute_cdp_cmd("Network.setUserAgentOverride", {
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                     "AppleWebKit/537.36 (KHTML, like Gecko) "
-                     "Chrome/130.0.0.0 Safari/537.36"
-    })
-    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
-        "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
-    })
-    print("✅ Chrome configurado com sucesso!")
+# Validação
+if not all([BOT_TOKEN, CHAT_ID, LOGIN, SENHA]):
+    print("❌ ERRO: Variáveis não configuradas!")
+    sys.exit(1)
+
+print(f"✅ Bot Token: {BOT_TOKEN[:15]}...")
+print(f"✅ Chat ID: {CHAT_ID}")
+print(f"✅ Login: {LOGIN}")
+
+# ===============================
+# 📡 TELEGRAM
+# ===============================
+def enviar_telegram(msg, img=None):
+    for i in range(3):
+        try:
+            if img and os.path.exists(img):
+                url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
+                with open(img, "rb") as f:
+                    r = requests.post(url, data={"chat_id": CHAT_ID, "caption": msg}, files={"photo": f}, timeout=30)
+            else:
+                url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+                r = requests.post(url, data={"chat_id": CHAT_ID, "text": msg}, timeout=30)
+            
+            if r.status_code == 200:
+                print(f"✅ Telegram OK")
+                return True
+            print(f"⚠️ Status {r.status_code}")
+        except Exception as e:
+            print(f"⚠️ Tentativa {i+1}: {e}")
+            time.sleep(2)
+    return False
+
+def salvar_print(driver, nome):
+    try:
+        os.makedirs("prints", exist_ok=True)
+        caminho = f"prints/{time.strftime('%H%M%S')}_{nome}.png"
+        driver.save_screenshot(caminho)
+        print(f"📸 {caminho}")
+        return caminho
+    except Exception as e:
+        print(f"❌ Print erro: {e}")
+        return None
+
+# ===============================
+# 🧠 CHROME
+# ===============================
+def setup_driver():
+    print("\n🚀 Iniciando Chrome...")
+    
+    opts = Options()
+    opts.add_argument("--headless=new")
+    opts.add_argument("--no-sandbox")
+    opts.add_argument("--disable-dev-shm-usage")
+    opts.add_argument("--disable-gpu")
+    opts.add_argument("--window-size=1920,1080")
+    opts.binary_location = "/usr/bin/chromium-browser"
+    
+    driver = webdriver.Chrome(options=opts)
+    driver.set_page_load_timeout(60)
+    print("✅ Chrome OK\n")
     return driver
 
-
-# ===============================================================
-# 🔑 LOGIN
-# ===============================================================
-def fazer_login(driver, login, senha):
-    print("🔑 Fazendo login no GERADOR PRO...")
-    driver.get("https://gerador.pro/login.php")
-
-    WebDriverWait(driver, 25).until(EC.presence_of_element_located((By.NAME, "username"))).send_keys(login)
-    driver.find_element(By.NAME, "password").send_keys(senha)
-    driver.find_element(By.XPATH, "//button[@type='submit']").click()
-    WebDriverWait(driver, 20).until(lambda d: "index.php" in d.current_url)
-    print("✅ Login realizado com sucesso!")
-
-
-# ===============================================================
-# 🏀 PÁGINA NBA
-# ===============================================================
-def ir_gerar_nba(driver):
-    print("🏀 Indo para a página de geração NBA...")
-    driver.get("https://gerador.pro/nba.php")
-    WebDriverWait(driver, 10).until(lambda d: "nba" in d.current_url)
-    print(f"✅ Página NBA aberta: {driver.current_url}")
-
-
-# ===============================================================
-# 🟣 GERAR E ENVIAR TODOS OS BANNERS NBA
-# ===============================================================
-def gerar_banners(driver):
-    print("🎨 Selecionando modelo 'Basquete Roxo'...")
-    botao_roxo = WebDriverWait(driver, 20).until(
-        EC.element_to_be_clickable((By.XPATH, "//*[contains(text(),'Basquete Roxo')]"))
-    )
-    driver.execute_script("arguments[0].scrollIntoView(true);", botao_roxo)
-    time.sleep(1)
-    botao_roxo.click()
-    print("✅ Clicou em 'Basquete Roxo'")
-
-    WebDriverWait(driver, 15).until(lambda d: "modelo=27" in d.current_url)
-    print(f"📄 Página do modelo carregada: {driver.current_url}")
-
-    botao_gerar = WebDriverWait(driver, 20).until(
-        EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Gerar Banners')]"))
-    )
-    botao_gerar.click()
-    print("⚙️ Clicou em 'Gerar Banners', aguardando popup...")
-
-    popup_ok = WebDriverWait(driver, 25).until(
-        EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'OK')]"))
-    )
-    popup_ok.click()
-    print("✅ Clicou em 'OK' do popup!")
-
-    WebDriverWait(driver, 25).until(lambda d: "cartazes" in d.current_url)
-    print(f"🖼️ Página de banners carregada: {driver.current_url}")
-
-    # AGUARDAR CARREGAMENTO COMPLETO DAS IMAGENS
-    print("⏳ Aguardando carregamento dos banners (30s)...")
-    time.sleep(30)  # Tempo maior para garantir que os banners carregaram
+# ===============================
+# 🔐 LOGIN
+# ===============================
+def fazer_login(driver):
+    print("🔐 Fazendo login...")
+    enviar_telegram("🟡 Iniciando login...")
     
-    # ESTRATÉGIA 1: Tentar enviar individualmente por diferentes seletores
-    banners_enviados = 0
-    
-    # Tentar localizar botões por diferentes métodos
-    seletores = [
-        "//button[contains(text(),'Enviar') and not(contains(text(),'Todas'))]",
-        "//button[@class and contains(text(),'Enviar')]",
-        "//form//button[contains(text(),'Enviar')]",
-        "//div[@class='banner-item']//button",
-        "//button[@type='submit' and contains(text(),'Enviar')]"
-    ]
-    
-    botoes_encontrados = []
-    for seletor in seletores:
-        try:
-            botoes = driver.find_elements(By.XPATH, seletor)
-            if botoes:
-                print(f"✅ Encontrados {len(botoes)} botões com seletor: {seletor[:50]}...")
-                botoes_encontrados = botoes
-                break
-        except:
-            continue
-    
-    if not botoes_encontrados:
-        print("⚠️ Nenhum botão individual encontrado, tentando método alternativo...")
+    try:
+        driver.get("https://gerador.pro/painel")
+        print(f"📄 {driver.current_url}")
         
-        # ESTRATÉGIA 2: Usar JavaScript para enviar os formulários
+        time.sleep(20)  # Cloudflare
+        img1 = salvar_print(driver, "01_cloudflare")
+        enviar_telegram("🛡️ Cloudflare OK", img1)
+        
+        user = WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.NAME, "username")))
+        pwd = driver.find_element(By.NAME, "password")
+        
+        user.send_keys(LOGIN)
+        time.sleep(1)
+        pwd.send_keys(SENHA)
+        time.sleep(1)
+        
+        img2 = salvar_print(driver, "02_antes_login")
+        enviar_telegram("📋 Credenciais OK", img2)
+        
+        btn = WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Entrar')]"))
+        )
+        btn.click()
+        
+        time.sleep(10)
+        WebDriverWait(driver, 30).until(EC.url_contains("painel"))
+        
+        print(f"✅ Login OK: {driver.current_url}")
+        img3 = salvar_print(driver, "03_apos_login")
+        enviar_telegram(f"✅ Login OK!\n{driver.current_url}", img3)
+        time.sleep(3)
+        return True
+        
+    except Exception as e:
+        print(f"❌ Login erro: {e}")
+        img = salvar_print(driver, "ERRO_login")
+        enviar_telegram(f"❌ Erro login: {e}", img)
+        return False
+
+# ===============================
+# 🏀 GERAR BANNERS NBA
+# ===============================
+def gerar_banners(driver):
+    print("\n🏀 Gerando banners NBA...")
+    
+    try:
+        driver.get("https://gerador.pro/nba")
+        time.sleep(6)
+        print(f"📄 {driver.current_url}")
+        
+        img1 = salvar_print(driver, "04_pagina_nba")
+        enviar_telegram("📄 Página NBA OK", img1)
+        
+        btn15 = WebDriverWait(driver, 30).until(
+            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'15')]"))
+        )
+        btn15.click()
+        time.sleep(4)
+        print("✅ Modelo 15 OK")
+        
+        img2 = salvar_print(driver, "05_modelo_15")
+        enviar_telegram("✅ Modelo 15 NBA", img2)
+        
+        btn_gerar = WebDriverWait(driver, 30).until(
+            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Gerar')]"))
+        )
+        btn_gerar.click()
+        print("⏳ Gerando (25s)...")
+        time.sleep(25)
+        
+        img3 = salvar_print(driver, "06_gerados")
+        enviar_telegram("✅ Banners NBA gerados! 🏀", img3)
+        
         try:
-            print("🔄 Tentando enviar via JavaScript...")
-            script = """
-            var forms = document.querySelectorAll('form');
-            var count = 0;
-            forms.forEach(function(form, index) {
-                if (form.querySelector('img') || form.querySelector('button')) {
-                    setTimeout(function() {
-                        form.submit();
-                        console.log('Enviado formulário ' + (index + 1));
-                    }, index * 3000);
-                    count++;
-                }
-            });
-            return count;
-            """
-            banners_enviados = driver.execute_script(script)
-            print(f"✅ Tentativa de envio via JS: {banners_enviados} formulários")
-            time.sleep(10)  # Aguardar envios
-            
-        except Exception as e:
-            print(f"❌ Erro ao enviar via JS: {e}")
-    
-    else:
-        # ESTRATÉGIA 3: Clicar nos botões encontrados
-        for i, botao in enumerate(botoes_encontrados[:3], 1):  # Máximo 3 banners
-            try:
-                print(f"\n📤 Enviando banner {i}/3...")
-                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", botao)
-                time.sleep(1)
-                
-                # Tentar click normal, se falhar usar JS
-                try:
-                    botao.click()
-                except:
-                    driver.execute_script("arguments[0].click();", botao)
-                
-                print(f"✅ Clicou no botão do banner {i}")
-                time.sleep(4)  # Aguardar processamento
-                banners_enviados += 1
-                
-            except Exception as e:
-                print(f"⚠️ Erro ao enviar banner {i}: {e}")
-                continue
-    
-    # Aguardar confirmação final
-    print(f"\n⏳ Aguardando confirmação final (15s)...")
-    time.sleep(15)
-    
-    # Verificar quantos foram enviados checando o conteúdo da página
-    body_text = driver.find_element(By.TAG_NAME, "body").text.lower()
-    confirmacoes = body_text.count("enviado") + body_text.count("sucesso")
-    
-    print(f"\n📊 Resumo: {banners_enviados} tentativas / {confirmacoes} confirmações detectadas")
-    
-    if banners_enviados >= 1 or confirmacoes >= 1:
-        print(f"✅ Envio concluído! ({max(banners_enviados, confirmacoes)} banner(s))")
-        return banners_enviados
-    else:
-        raise Exception("❌ Nenhum banner foi enviado. Verifique a estrutura da página.")
-
-
-# ===============================================================
-# 📢 TELEGRAM
-# ===============================================================
-def enviar_telegram(msg):
-    token = os.environ.get("BOT_TOKEN")
-    chat_id = os.environ.get("CHAT_ID")
-    if not token or not chat_id:
-        print("⚠️ Bot Token ou Chat ID não configurados.")
-        return
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    data = {"chat_id": chat_id, "text": msg, "parse_mode": "HTML"}
-    try:
-        r = requests.post(url, data=data)
-        if r.status_code == 200:
-            print("📨 Mensagem enviada ao Telegram!")
-        else:
-            print(f"⚠️ Telegram retornou {r.status_code}: {r.text}")
+            ok = WebDriverWait(driver, 15).until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'OK')]")))
+            ok.click()
+            time.sleep(5)
+        except:
+            print("⚠️ OK não encontrado")
+        
+        btn_enviar = WebDriverWait(driver, 30).until(
+            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Enviar')]"))
+        )
+        btn_enviar.click()
+        print("⏳ Enviando (20s)...")
+        time.sleep(20)
+        
+        img4 = salvar_print(driver, "07_enviados")
+        enviar_telegram("🎉 Banners NBA enviados! 🏀", img4)
+        return True
+        
     except Exception as e:
-        print(f"❌ Erro ao enviar mensagem: {e}")
+        print(f"❌ Gerar erro: {e}")
+        img = salvar_print(driver, "ERRO_gerar")
+        enviar_telegram(f"❌ Erro gerar: {e}", img)
+        return False
 
-
-# ===============================================================
-# 🚀 FLUXO PRINCIPAL
-# ===============================================================
+# ===============================
+# 🎯 MAIN
+# ===============================
 def main():
-    print("=" * 70)
-    print("🚀 INICIANDO AUTOMAÇÃO NBA - GERADOR PRO")
-    print(f"🕒 Executado em: {time.strftime('%d/%m/%Y %H:%M:%S')}")
-    print("=" * 70)
-
-    login = os.environ.get("LOGIN")
-    senha = os.environ.get("SENHA")
-
-    driver = setup_driver()
+    print("="*50)
+    print("🚀 AUTOMAÇÃO NBA INICIADA")
+    print("="*50)
+    
+    inicio = time.time()
+    driver = None
+    ok_login = False
+    ok_gerar = False
+    
     try:
-        fazer_login(driver, login, senha)
-        ir_gerar_nba(driver)
-        enviados = gerar_banners(driver)
-
-        hora = time.strftime("%H:%M")
-        data = time.strftime("%d/%m/%Y")
-        enviar_telegram(f"🏀 <b>NBA - {data}</b>\n✅ Envio completo às {hora}\n📸 {enviados} banner(s) enviado(s) com sucesso!")
-        print("=" * 70)
-        print("✅ AUTOMAÇÃO NBA FINALIZADA COM SUCESSO!")
-        print("=" * 70)
-
+        enviar_telegram(f"🚀 AUTOMAÇÃO NBA INICIADA 🏀\n{time.strftime('%d/%m/%Y %H:%M:%S')}")
+        
+        driver = setup_driver()
+        ok_login = fazer_login(driver)
+        
+        if not ok_login:
+            raise Exception("Falha no login")
+        
+        ok_gerar = gerar_banners(driver)
+        
+        if not ok_gerar:
+            raise Exception("Falha ao gerar")
+        
+        print("\n🎉 SUCESSO TOTAL NBA! 🏀")
+        
     except Exception as e:
-        print("❌ ERRO DURANTE A EXECUÇÃO:", e)
-        enviar_telegram(f"❌ Erro ao gerar banners NBA: {e}")
+        print(f"\n❌ ERRO: {e}")
+        print(traceback.format_exc())
+        if driver:
+            img = salvar_print(driver, "ERRO_geral")
+            enviar_telegram(f"❌ ERRO: {e}", img)
+    
     finally:
-        driver.quit()
-        print("🔒 Navegador fechado")
-
+        tempo = time.time() - inicio
+        
+        if driver:
+            driver.quit()
+            print("✅ Chrome fechado")
+        
+        status = "✅ SUCESSO" if (ok_login and ok_gerar) else "❌ FALHA"
+        enviar_telegram(
+            f"📊 RELATÓRIO NBA 🏀\n\n"
+            f"Status: {status}\n"
+            f"Login: {'✅' if ok_login else '❌'}\n"
+            f"Geração: {'✅' if ok_gerar else '❌'}\n"
+            f"Tempo: {tempo:.1f}s"
+        )
+        
+        print(f"\n{'='*50}")
+        print(f"STATUS: {status}")
+        print(f"Tempo: {tempo:.1f}s")
+        print(f"{'='*50}\n")
 
 if __name__ == "__main__":
     main()
