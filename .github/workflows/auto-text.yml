@@ -1,9 +1,9 @@
 name: Auto Texto Jogos
 
 on:
+  workflow_dispatch:      # 👈 importante que esteja nesse nível
   schedule:
-    - cron: "10 12 * * *"  # executa 09:10 horário de Brasília (12:10 UTC)
-  workflow_dispatch:
+    - cron: "10 12 * * *"  # executa às 09:10 (horário de Brasília)
 
 jobs:
   run:
