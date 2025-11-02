@@ -1,8 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-import os
-import time
-import requests
+import time, os, requests
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
@@ -11,67 +7,76 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
-LOGIN = os.environ.get("LOGIN")
-SENHA = os.environ.get("SENHA")
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-CHAT_ID = os.environ.get("CHAT_ID")
-
+# ==========================
+# 🔧 Configuração do Chrome
+# ==========================
 def setup_driver():
-    opts = Options()
-    opts.add_argument("--headless=new")
-    opts.add_argument("--no-sandbox")
-    opts.add_argument("--disable-dev-shm-usage")
-    opts.add_argument("--window-size=1920,1080")
-    service = Service(ChromeDriverManager().install())
-    return webdriver.Chrome(service=service, options=opts)
+    options = Options()
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--window-size=1920,1080")
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    return driver
 
-def enviar_mensagem(texto):
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    data = {"chat_id": CHAT_ID, "text": texto}
-    try:
-        r = requests.post(url, data=data, timeout=30)
-        print("Mensagem enviada:", r.text)
-    except Exception as e:
-        print("Erro ao enviar mensagem:", e)
+# ======================================
+# 💬 Envio do texto formatado ao Telegram
+# ======================================
+def enviar_telegram(texto):
+    token = "7872091942:AAHbvXRGtdomQxgyKDAkuk1SoLULx0B9xEg"
+    chat_id = "-1002169364087"
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": texto,
+        "parse_mode": "Markdown"
+    }
+    response = requests.post(url, data=payload)
+    print("📨 Envio para Telegram:", response.status_code)
 
+# ======================
+# 🚀 Fluxo principal
+# ======================
 def main():
+    print("🚀 Iniciando captura de texto dos jogos...")
     driver = setup_driver()
+    driver.get("https://gerador.pro/login.php")
+
+    # Login
+    WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.NAME, "username"))).send_keys("deivson06")
+    driver.find_element(By.NAME, "password").send_keys("F9416280")
+    driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
+    print("✅ Login realizado!")
+
+    # Ir até a página de futebol
+    WebDriverWait(driver, 15).until(EC.element_to_be_clickable((By.LINK_TEXT, "Gerar Futebol"))).click()
+    print("⚽ Página de Futebol aberta")
+
+    # Espera o botão de copiar texto aparecer
     try:
-        driver.get("https://gerador.pro/login.php")
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.NAME, "username"))).send_keys(LOGIN)
-        driver.find_element(By.NAME, "password").send_keys(SENHA)
-        driver.find_element(By.XPATH, "//button[contains(., 'Entrar')]").click()
-        WebDriverWait(driver, 10).until(lambda d: "index" in d.current_url)
-        print("✅ Login realizado com sucesso!")
+        WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.XPATH, "//button[contains(., 'Copiar texto')]"))
+        )
+        time.sleep(2)
 
-        driver.get("https://gerador.pro/guitexto.php")
-        print("➡️ Página do Guia Futebol carregada")
-
-        # Clicar no botão 'Copiar Texto'
+        # Captura o conteúdo do campo de texto
         try:
-            btn = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'copiar texto')]")))
-            driver.execute_script("arguments[0].click();", btn)
-            print("📋 Botão 'Copiar Texto' clicado")
-        except Exception as e:
-            print("⚠️ Não foi possível clicar no botão copiar:", e)
+            texto = driver.find_element(By.ID, "textoCopiado").get_attribute("value")
+        except:
+            texto = driver.find_element(By.TAG_NAME, "textarea").get_attribute("value")
 
-        # Captura do texto
-        try:
-            textarea = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "textarea")))
-            texto = textarea.get_attribute("value")
-        except Exception:
-            texto = "⚠️ Não foi possível capturar o texto do Guia Futebol."
-
-        if texto.strip():
-            enviar_mensagem(texto.strip())
+        if texto:
+            print("📝 Texto capturado com sucesso!")
+            print(texto[:300], "...")
+            enviar_telegram(texto)
         else:
-            enviar_mensagem("⚠️ Nenhum texto encontrado na página Guia Futebol.")
+            print("⚠️ Nenhum texto encontrado no site.")
 
     except Exception as e:
-        enviar_mensagem(f"❌ Erro no script Guia Futebol: {e}")
-    finally:
-        driver.quit()
-        print("🔒 Navegador fechado")
+        print("❌ Erro ao capturar texto:", e)
+
+    driver.quit()
+    print("🔒 Navegador fechado.")
 
 if __name__ == "__main__":
     main()
