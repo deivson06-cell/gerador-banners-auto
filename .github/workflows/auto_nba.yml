@@ -2,7 +2,7 @@ name: Auto NBA Banners
 
 on:
   schedule:
-    - cron: '40 13 * * *'  # 10:40 horário de Brasília (13:40 UTC)
+    - cron: '40 13 * * *'  # executa às 10:40 horário de Brasília (13:40 UTC)
   workflow_dispatch:
 
 jobs:
