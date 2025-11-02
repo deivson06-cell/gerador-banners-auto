@@ -2,7 +2,7 @@ name: AutoGerar Futebol
 
 on:
   schedule:
-    - cron: "0 12 * * *"  # executa às 09:00 horário de Brasília
+    - cron: "0 12 * * *"  # executa às 09:00 horário de Brasília (12:00 UTC)
   workflow_dispatch:
 
 jobs:
@@ -36,4 +36,6 @@ jobs:
         env:
           LOGIN: ${{ secrets.LOGIN }}
           SENHA: ${{ secrets.SENHA }}
-          TELEGRAM_BOT_
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: python main.py
