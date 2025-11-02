@@ -1,0 +1,30 @@
+name: Auto NBA Banners
+
+on:
+  schedule:
+    - cron: '40 13 * * *'  # 10:40 BRT (UTC-3)
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install selenium webdriver-manager
+      
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@latest
+      
+      - name: Executar automação NBA
+        env:
+          LOGIN: ${{ secrets.LOGIN_USER }}
+          SENHA: ${{ secrets.LOGIN_PASS }}
+        run: python auto_texto_nba.py
