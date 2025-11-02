@@ -141,55 +141,146 @@ def fazer_login(driver):
     print("\n🔐 INICIANDO LOGIN...")
     
     try:
-        # Aguarda campo de usuário
-        print("   Aguardando campo de usuário...")
-        user_input = WebDriverWait(driver, 20).until(
-            EC.presence_of_element_located((
-                By.XPATH, 
-                "//input[@type='text' or @type='email' or contains(@placeholder,'Usu') or contains(@placeholder,'Email')]"
-            ))
-        )
+        # Salva screenshot da página de login
+        driver.save_screenshot("01_pagina_login.png")
+        print("   📸 Screenshot: 01_pagina_login.png")
+        
+        # Aguarda página carregar
+        time.sleep(3)
+        
+        # Tenta múltiplos seletores para o campo de usuário
+        print("   Procurando campo de usuário...")
+        user_input = None
+        
+        selectores_user = [
+            "//input[@name='username']",
+            "//input[@name='user']",
+            "//input[@name='email']",
+            "//input[@type='text']",
+            "//input[@id='username']",
+            "//input[@id='user']",
+            "//input[contains(@placeholder,'Usu')]",
+            "//input[contains(@placeholder,'Email')]"
+        ]
+        
+        for selector in selectores_user:
+            try:
+                user_input = WebDriverWait(driver, 5).until(
+                    EC.presence_of_element_located((By.XPATH, selector))
+                )
+                print(f"   ✅ Campo encontrado com: {selector}")
+                break
+            except:
+                continue
+        
+        if not user_input:
+            print("   ❌ Campo de usuário não encontrado!")
+            print("   HTML da página:")
+            print(driver.page_source[:1000])
+            return False
+        
+        # Preenche usuário
         user_input.clear()
+        time.sleep(0.5)
         user_input.send_keys(LOGIN_USER)
         print(f"   ✅ Usuário '{LOGIN_USER}' inserido")
         
         # Campo de senha
-        print("   Inserindo senha...")
-        pwd_input = driver.find_element(
-            By.XPATH, 
-            "//input[@type='password' or contains(@placeholder,'Senha')]"
-        )
+        print("   Procurando campo de senha...")
+        pwd_input = None
+        
+        selectores_pwd = [
+            "//input[@name='password']",
+            "//input[@name='senha']",
+            "//input[@type='password']",
+            "//input[@id='password']",
+            "//input[contains(@placeholder,'Senha')]"
+        ]
+        
+        for selector in selectores_pwd:
+            try:
+                pwd_input = driver.find_element(By.XPATH, selector)
+                print(f"   ✅ Campo encontrado com: {selector}")
+                break
+            except:
+                continue
+        
+        if not pwd_input:
+            print("   ❌ Campo de senha não encontrado!")
+            return False
+        
         pwd_input.clear()
+        time.sleep(0.5)
         pwd_input.send_keys(LOGIN_PASS)
         print("   ✅ Senha inserida")
         
+        # Salva screenshot antes de clicar
+        driver.save_screenshot("02_antes_login.png")
+        print("   📸 Screenshot: 02_antes_login.png")
+        
         # Botão de login
-        print("   Clicando em login...")
-        login_btn = driver.find_element(
-            By.XPATH, 
-            "//button[contains(.,'Entrar') or contains(.,'Login') or @type='submit']"
-        )
+        print("   Procurando botão de login...")
+        login_btn = None
+        
+        selectores_btn = [
+            "//button[@type='submit']",
+            "//input[@type='submit']",
+            "//button[contains(text(),'Entrar')]",
+            "//button[contains(text(),'Login')]",
+            "//button[contains(text(),'ENTRAR')]",
+            "//input[@value='Entrar']",
+            "//a[contains(text(),'Entrar')]"
+        ]
+        
+        for selector in selectores_btn:
+            try:
+                login_btn = driver.find_element(By.XPATH, selector)
+                print(f"   ✅ Botão encontrado com: {selector}")
+                break
+            except:
+                continue
+        
+        if not login_btn:
+            print("   ❌ Botão de login não encontrado!")
+            return False
+        
+        # Scroll até o botão e clica
+        driver.execute_script("arguments[0].scrollIntoView(true);", login_btn)
+        time.sleep(1)
         login_btn.click()
         print("   ✅ Botão clicado")
         
-        time.sleep(4)
+        # Aguarda redirecionamento
+        time.sleep(5)
+        
+        # Salva screenshot após login
+        driver.save_screenshot("03_apos_login.png")
+        print("   📸 Screenshot: 03_apos_login.png")
         
         # Verifica se login foi bem-sucedido
         current_url = driver.current_url
         print(f"   URL atual: {current_url}")
         
-        if "login" not in current_url.lower():
+        # Verifica se há mensagem de erro
+        page_text = driver.find_element(By.TAG_NAME, "body").text.lower()
+        
+        if any(erro in page_text for erro in ["senha incorreta", "usuário não encontrado", "credenciais inválidas", "login falhou"]):
+            print("   ❌ Mensagem de erro detectada na página")
+            print(f"   Trecho: {page_text[:300]}")
+            return False
+        
+        if "login" not in current_url.lower() or "dashboard" in current_url.lower() or "home" in current_url.lower():
             print("✅ LOGIN BEM-SUCEDIDO")
             return True
         else:
             print("⚠️ Ainda na página de login - pode ter falhado")
-            # Salva screenshot
-            driver.save_screenshot("login_failed.png")
-            print("   📸 Screenshot salvo: login_failed.png")
             return False
         
     except Exception as e:
         print(f"❌ Erro no login: {e}")
+        import traceback
+        traceback.print_exc()
+        
         try:
             driver.save_screenshot("login_error.png")
             print("   📸 Screenshot salvo: login_error.png")
