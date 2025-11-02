@@ -32,9 +32,11 @@ def validar_credenciais():
     print("✅ Todas as credenciais estão configuradas\n")
 
 def setup_driver():
-    """Configura e retorna o driver do Chrome"""
-    print("🔧 Configurando Chrome Driver...")
+    """Configura e retorna o driver do Chrome com bypass Cloudflare"""
+    print("🔧 Configurando Chrome Driver (com anti-detecção)...")
     opts = Options()
+    
+    # Argumentos para parecer um navegador real
     opts.add_argument("--headless=new")
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
@@ -42,14 +44,41 @@ def setup_driver():
     opts.add_argument("--disable-blink-features=AutomationControlled")
     opts.add_argument("--disable-gpu")
     opts.add_argument("--enable-clipboard")
-    opts.add_experimental_option("excludeSwitches", ["enable-automation"])
+    
+    # User agent realista
+    opts.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    
+    # Headers adicionais
+    opts.add_argument("--disable-blink-features=AutomationControlled")
+    opts.add_argument("--disable-infobars")
+    opts.add_argument("--disable-extensions")
+    opts.add_argument("--disable-dev-shm-usage")
+    
+    # Desabilita detecção de automação
+    opts.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
     opts.add_experimental_option('useAutomationExtension', False)
+    
+    # Preferências para parecer mais real
+    prefs = {
+        "credentials_enable_service": False,
+        "profile.password_manager_enabled": False,
+        "profile.default_content_setting_values.notifications": 2
+    }
+    opts.add_experimental_option("prefs", prefs)
     
     driver = webdriver.Chrome(
         service=Service(ChromeDriverManager().install()), 
         options=opts
     )
-    print("✅ Chrome Driver configurado")
+    
+    # Executa script para remover propriedades de webdriver
+    driver.execute_cdp_cmd("Network.setUserAgentOverride", {
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    })
+    
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+    
+    print("✅ Chrome Driver configurado com anti-detecção")
     return driver
 
 def testar_telegram():
@@ -418,7 +447,26 @@ def main():
         print("\n🌐 ACESSANDO SITE...")
         driver.get("https://gerador.pro/login.php")
         print(f"   URL carregada: {driver.current_url}")
-        time.sleep(2)
+        
+        # Aguarda o Cloudflare (se aparecer)
+        print("   Aguardando possível verificação Cloudflare...")
+        time.sleep(10)  # Aguarda 10 segundos para Cloudflare processar
+        
+        # Verifica se passou do Cloudflare
+        page_title = driver.title.lower()
+        print(f"   Título da página: {driver.title}")
+        
+        if "just a moment" in page_title or "cloudflare" in page_title:
+            print("   ⚠️ Cloudflare detectado! Aguardando mais 10 segundos...")
+            time.sleep(10)
+            
+            # Tenta recarregar a página
+            if "just a moment" in driver.title.lower():
+                print("   🔄 Cloudflare ainda ativo, tentando recarregar...")
+                driver.refresh()
+                time.sleep(10)
+        
+        print(f"   ✅ Título final: {driver.title}")
         
         # Faz login
         if not fazer_login(driver):
