@@ -1,4 +1,4 @@
-import os, time, requests
+import os, time
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -7,11 +7,12 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
+
 # ===============================================================
-# ⚙️ CONFIGURAÇÃO DO DRIVER
+# ⚙️ CONFIGURAÇÃO DO NAVEGADOR
 # ===============================================================
 def setup_driver():
-    print("🔧 Configurando Chrome...")
+    print("🔧 Configurando Chrome headless...")
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
@@ -21,8 +22,9 @@ def setup_driver():
     options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
-    print("✅ Chrome configurado!")
+    print("✅ Chrome configurado com sucesso!")
     return driver
+
 
 # ===============================================================
 # 🔑 LOGIN
@@ -38,91 +40,71 @@ def fazer_login(driver, login, senha):
     WebDriverWait(driver, 15).until(lambda d: "index.php" in d.current_url)
     print("✅ Login realizado com sucesso!")
 
+
 # ===============================================================
-# 🏀 IR PARA PÁGINA DE NBA
+# 🏀 ABRIR PÁGINA NBA
 # ===============================================================
 def ir_gerar_nba(driver):
-    print("🏀 Acessando página de geração NBA...")
-    time.sleep(2)
-
-    # tenta clicar no menu "Gerar NBA"
-    estrategias = [
-        "//a[contains(text(),'Gerar NBA')]",
-        "//a[contains(@href, 'nba.php')]",
-        "//div[contains(text(),'Gerar NBA')]",
-    ]
-
-    for xpath in estrategias:
-        try:
-            elemento = driver.find_element(By.XPATH, xpath)
-            elemento.click()
-            print("✅ Clicou em 'Gerar NBA'")
-            break
-        except:
-            continue
-
-    # tenta URL direta se não clicou
-    if "nba" not in driver.current_url.lower():
+    print("🏀 Indo para a página de geração NBA...")
+    try:
+        link = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//a[contains(text(),'Gerar NBA')]"))
+        )
+        link.click()
+        print("✅ Clicou em 'Gerar NBA'")
+    except:
         driver.get("https://gerador.pro/nba.php")
 
     WebDriverWait(driver, 10).until(lambda d: "nba" in d.current_url)
-    print(f"✅ Página NBA carregada: {driver.current_url}")
+    print(f"✅ Página NBA aberta: {driver.current_url}")
+
 
 # ===============================================================
-# 🎨 SELECIONAR OPÇÃO "BASQUETE ROXO" E GERAR BANNERS
+# 🟣 CLICAR EM BASQUETE ROXO → GERAR BANNERS → ENVIAR
 # ===============================================================
 def gerar_banners(driver):
-    print("🎨 Procurando e clicando em 'Basquete Roxo'...")
+    print("🎨 Selecionando modelo 'Basquete Roxo'...")
 
-    estrategias = [
-        "//button[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), 'basquete roxo')]",
-        "//div[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), 'basquete roxo')]",
-        "//span[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), 'basquete roxo')]",
-        "//p[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), 'basquete roxo')]",
-    ]
+    # 1️⃣ clicar no modelo “Basquete Roxo”
+    botao_roxo = WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.XPATH, "//*[contains(text(),'Basquete Roxo')]"))
+    )
+    driver.execute_script("arguments[0].scrollIntoView(true);", botao_roxo)
+    time.sleep(1)
+    botao_roxo.click()
+    print("✅ Clicou em 'Basquete Roxo'")
 
-    clicado = False
-    for xpath in estrategias:
-        try:
-            elemento = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, xpath)))
-            driver.execute_script("arguments[0].scrollIntoView(true);", elemento)
-            time.sleep(1)
-            elemento.click()
-            print("✅ Clicou em 'Basquete Roxo'")
-            clicado = True
-            break
-        except Exception as e:
-            print(f"❌ Falhou: {e}")
-            continue
+    # 2️⃣ aguardar redirecionamento do modelo
+    WebDriverWait(driver, 15).until(lambda d: "modelo=27" in d.current_url)
+    print(f"📄 Página do modelo carregada: {driver.current_url}")
 
-    if not clicado:
-        raise Exception("❌ Não foi possível clicar em 'Basquete Roxo'")
-
-    # botão Gerar
-    print("⏳ Aguardando botão 'Gerar Banners'...")
+    # 3️⃣ clicar em “Gerar Banners”
     botao_gerar = WebDriverWait(driver, 15).until(
-        EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Gerar')]"))
+        EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Gerar Banners')]"))
     )
     botao_gerar.click()
-    print("🏗️ Gerando banners NBA...")
+    print("⚙️ Clicou em 'Gerar Banners', aguardando popup de sucesso...")
 
-    # aguarda popup "Sucesso!"
-    try:
-        WebDriverWait(driver, 15).until(EC.alert_is_present())
-        alerta = driver.switch_to.alert
-        print(f"📢 Alerta: {alerta.text}")
-        alerta.accept()
-        print("✅ Popup confirmado")
-    except:
-        print("⚠️ Nenhum alerta de sucesso detectado")
+    # 4️⃣ popup de sucesso
+    WebDriverWait(driver, 15).until(EC.alert_is_present())
+    alerta = driver.switch_to.alert
+    print(f"📢 Popup detectado: {alerta.text}")
+    alerta.accept()
+    print("✅ Popup confirmado (OK clicado)")
 
-    # clicar em "Enviar todas as imagens"
-    print("📤 Procurando botão 'Enviar todas as imagens'...")
+    # 5️⃣ aguardar redirecionamento para /futebol/cartazes/
+    WebDriverWait(driver, 15).until(lambda d: "cartazes" in d.current_url)
+    print(f"🖼️ Página de banners carregada: {driver.current_url}")
+
+    # 6️⃣ clicar em “Enviar todas as imagens”
     enviar_btn = WebDriverWait(driver, 20).until(
-        EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Enviar todas as imagens')]"))
+        EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Enviar Todas as Imagens')]"))
     )
+    driver.execute_script("arguments[0].scrollIntoView(true);", enviar_btn)
+    time.sleep(1)
     enviar_btn.click()
-    print("🎉 Banners NBA enviados para o Telegram com sucesso!")
+    print("🎉 BANNERS NBA ENVIADOS COM SUCESSO PARA O TELEGRAM!")
+
 
 # ===============================================================
 # 🚀 FLUXO PRINCIPAL
@@ -130,14 +112,14 @@ def gerar_banners(driver):
 def main():
     print("="*70)
     print("🚀 INICIANDO AUTOMAÇÃO NBA - GERADOR PRO")
-    print("⏰", time.strftime("%d/%m/%Y %H:%M:%S"))
+    print(f"🕒 Executado em: {time.strftime('%d/%m/%Y %H:%M:%S')}")
     print("="*70)
 
     login = os.environ.get("LOGIN")
     senha = os.environ.get("SENHA")
 
     if not login or not senha:
-        print("❌ Credenciais não encontradas!")
+        print("❌ Credenciais não encontradas nas variáveis de ambiente!")
         return
 
     driver = setup_driver()
@@ -145,23 +127,20 @@ def main():
         fazer_login(driver, login, senha)
         ir_gerar_nba(driver)
         gerar_banners(driver)
-
         print("="*70)
-        print("✅ PROCESSO NBA FINALIZADO COM SUCESSO!")
+        print("✅ AUTOMAÇÃO NBA FINALIZADA COM SUCESSO!")
         print("="*70)
-
     except Exception as e:
-        print("❌ ERRO DURANTE A EXECUÇÃO:", str(e))
+        print("❌ ERRO DURANTE A EXECUÇÃO:", e)
         try:
             print("📍 URL atual:", driver.current_url)
-            body = driver.find_element(By.TAG_NAME, "body").text
-            print("📄 Página atual:", body[:400])
+            print("📄 Texto da página:", driver.find_element(By.TAG_NAME, "body").text[:400])
         except:
             pass
     finally:
         driver.quit()
         print("🔒 Navegador fechado")
 
-# ===============================================================
+
 if __name__ == "__main__":
     main()
