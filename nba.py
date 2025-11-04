@@ -39,7 +39,7 @@ def ir_para_nba(driver):
 def selecionar_basquete_roxo(driver):
     print("🎨 Selecionando modelo Basquete Roxo...")
     try:
-        elemento = WebDriverWait(driver, 10).until(
+        elemento = WebDriverWait(driver, 15).until(
             EC.element_to_be_clickable((By.XPATH, "//div[contains(text(),'Basquete Roxo') or contains(text(),'Roxo')]"))
         )
         driver.execute_script("arguments[0].click();", elemento)
@@ -50,25 +50,46 @@ def selecionar_basquete_roxo(driver):
 
 def gerar_banners(driver):
     print("⚙️ Gerando banners do NBA...")
-    WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Gerar Banners')]"))
-    ).click()
-    print("⏳ Gerando banners... aguardando mensagem de sucesso...")
-    WebDriverWait(driver, 30).until(
-        EC.presence_of_element_located((By.XPATH, "//div[contains(text(),'Sucesso') or contains(text(),'Banners gerados')]"))
-    )
-    print("✅ Banners gerados com sucesso!")
+    
     try:
-        ok_btn = driver.find_element(By.XPATH, "//button[contains(text(),'OK')]")
-        ok_btn.click()
-        print("✅ Clique em OK realizado!")
-    except:
-        print("⚠️ Botão OK não encontrado, continuando...")
+        botao = WebDriverWait(driver, 15).until(
+            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Gerar Banners')]"))
+        )
+        driver.execute_script("arguments[0].click();", botao)
+        print("🟠 Clique em 'Gerar Banners' realizado, aguardando processo...")
+
+        # Espera aparecer o texto de carregamento “Gerando seus banners...”
+        try:
+            WebDriverWait(driver, 20).until(
+                EC.presence_of_element_located((By.XPATH, "//*[contains(text(),'Gerando') or contains(text(),'aguarde')]"))
+            )
+            print("⏳ Tela de carregamento detectada.")
+        except:
+            print("⚠️ Não detectou tela de carregamento, continuando mesmo assim...")
+
+        # Agora espera até 90s pelo popup de sucesso
+        WebDriverWait(driver, 90).until(
+            EC.presence_of_element_located((By.XPATH, "//*[contains(text(),'Sucesso') or contains(text(),'Banners gerados')]"))
+        )
+        print("✅ Popup de sucesso detectado!")
+
+        # Clica no botão OK
+        try:
+            ok_btn = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'OK') or contains(text(),'Ok')]"))
+            )
+            driver.execute_script("arguments[0].click();", ok_btn)
+            print("✅ Botão OK clicado com sucesso!")
+        except:
+            print("⚠️ Botão OK não encontrado, prosseguindo...")
+
+    except Exception as e:
+        raise Exception(f"❌ Falha ao gerar banners: {e}")
 
 def enviar_para_telegram(driver):
     print("📤 Procurando botão 'Enviar todas as imagens'...")
     try:
-        WebDriverWait(driver, 30).until(
+        WebDriverWait(driver, 60).until(
             EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Enviar') or contains(text(),'Enviar todas')]"))
         ).click()
         print("🎉 Banners do NBA enviados para o Telegram!")
