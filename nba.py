@@ -50,7 +50,6 @@ def selecionar_basquete_roxo(driver):
 
 def gerar_banners(driver):
     print("⚙️ Gerando banners do NBA...")
-    
     try:
         botao = WebDriverWait(driver, 15).until(
             EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Gerar Banners')]"))
@@ -58,7 +57,7 @@ def gerar_banners(driver):
         driver.execute_script("arguments[0].click();", botao)
         print("🟠 Clique em 'Gerar Banners' realizado, aguardando processo...")
 
-        # Espera aparecer o texto de carregamento “Gerando seus banners...”
+        # Aguarda o texto "Gerando seus banners..."
         try:
             WebDriverWait(driver, 20).until(
                 EC.presence_of_element_located((By.XPATH, "//*[contains(text(),'Gerando') or contains(text(),'aguarde')]"))
@@ -67,13 +66,13 @@ def gerar_banners(driver):
         except:
             print("⚠️ Não detectou tela de carregamento, continuando mesmo assim...")
 
-        # Agora espera até 90s pelo popup de sucesso
+        # Aguarda até 90s o popup de sucesso
         WebDriverWait(driver, 90).until(
             EC.presence_of_element_located((By.XPATH, "//*[contains(text(),'Sucesso') or contains(text(),'Banners gerados')]"))
         )
         print("✅ Popup de sucesso detectado!")
 
-        # Clica no botão OK
+        # Clica em OK
         try:
             ok_btn = WebDriverWait(driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'OK') or contains(text(),'Ok')]"))
@@ -87,14 +86,42 @@ def gerar_banners(driver):
         raise Exception(f"❌ Falha ao gerar banners: {e}")
 
 def enviar_para_telegram(driver):
-    print("📤 Procurando botão 'Enviar todas as imagens'...")
+    print("📤 Preparando envio dos banners...")
+
+    # Aguarda a página da galeria carregar
+    WebDriverWait(driver, 30).until(
+        EC.url_contains("futebol/cartazes")
+    )
+
+    # Espera carregar as imagens
+    for i in range(20):
+        imagens = driver.find_elements(By.TAG_NAME, "img")
+        if len(imagens) > 1:
+            print(f"🖼️ {len(imagens)} banners detectados na galeria.")
+            break
+        print(f"⏳ Aguardando carregamento dos banners ({i+1}/20)...")
+        time.sleep(3)
+    else:
+        print("⚠️ Nenhum banner adicional detectado, tentando envio mesmo assim.")
+
+    # Clicar no botão Enviar todas as imagens
     try:
-        WebDriverWait(driver, 60).until(
+        botao_enviar = WebDriverWait(driver, 30).until(
             EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Enviar') or contains(text(),'Enviar todas')]"))
-        ).click()
-        print("🎉 Banners do NBA enviados para o Telegram!")
+        )
+        driver.execute_script("arguments[0].click();", botao_enviar)
+        print("✅ Clique em 'Enviar todas as imagens' realizado!")
+
+        # Espera 10s e tenta clicar novamente se o botão ainda estiver disponível
+        time.sleep(10)
+        botoes_restantes = driver.find_elements(By.XPATH, "//button[contains(text(),'Enviar') or contains(text(),'Enviar todas')]")
+        if botoes_restantes:
+            print("🔁 Repetindo clique para garantir envio de todos os banners...")
+            driver.execute_script("arguments[0].click();", botoes_restantes[0])
+
+        print("🎉 Todos os banners enviados para o Telegram!")
     except Exception as e:
-        print(f"⚠️ Não foi possível clicar em Enviar: {e}")
+        print(f"⚠️ Erro ao tentar enviar banners: {e}")
 
 def main():
     print("🚀 INICIANDO AUTOMAÇÃO NBA - GERADOR PRO")
