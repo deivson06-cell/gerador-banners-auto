@@ -1,44 +1,36 @@
-name: AutoGerar NBA
+name: Auto NBA Banners
 
 on:
   schedule:
-    - cron: '30 12 * * *'  # Executa todos os dias às 09:30 (horário de Brasília)
-  workflow_dispatch:  # Permite execução manual
+    - cron: '40 13 * * *'  # Executa às 10:40 horário de Brasília (13:40 UTC)
+  workflow_dispatch:
 
 jobs:
   run:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: 📂 Checkout do repositório
-      uses: actions/checkout@v4
-    
-    - name: 🧩 Instalar Google Chrome e Chromedriver
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y chromium-browser chromium-chromedriver
-    
-    - name: 🐍 Configurar Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    
-    - name: 📦 Instalar dependências
-      run: |
-        pip install selenium requests webdriver-manager
-    
-    - name: 🏀 Executar automação NBA
-      env:
-        BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-        CHAT_ID: ${{ secrets.CHAT_ID }}
-        LOGIN: ${{ secrets.LOGIN }}
-        SENHA: ${{ secrets.SENHA }}
-      run: python nba.py
-    
-    - name: 📸 Upload de prints
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: screenshots
-        path: prints/
-        if-no-files-found: ignore
+      - name: 📂 Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: 🧩 Instalar Google Chrome e dependências
+        run: |
+          sudo apt update
+          sudo apt install -y google-chrome-stable chromium-driver
+
+      - name: 🐍 Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 📦 Instalar dependências
+        run: |
+          pip install selenium webdriver-manager
+
+      - name: ⚙️ Executar automação NBA
+        env:
+          LOGIN: ${{ secrets.LOGIN }}
+          SENHA: ${{ secrets.SENHA }}
+        run: |
+          echo "🏀 Iniciando fluxo NBA..."
+          python nba.py
