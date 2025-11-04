@@ -1,4 +1,4 @@
-import os, time
+import os, time, requests
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -6,7 +6,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
-import requests
 
 def setup_driver():
     print("🔧 Configurando Chrome...")
@@ -16,6 +15,15 @@ def setup_driver():
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
+
+    # ⚙️ Proxy opcional (para contornar bloqueio do Cloudflare)
+    proxy = os.environ.get("PROXY")
+    if proxy:
+        print(f"🌎 Usando proxy: {proxy}")
+        options.add_argument(f"--proxy-server={proxy}")
+    else:
+        print("⚠️ Nenhum proxy configurado (usando IP padrão do GitHub Actions)")
+
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
     print("✅ Chrome configurado!")
@@ -34,29 +42,29 @@ def enviar_telegram(msg):
 def fazer_login(driver, login, senha):
     print("🔑 Fazendo login no GERADOR PRO...")
     driver.get("https://gerador.pro/login.php")
-    WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.NAME, "username"))).send_keys(login)
+    WebDriverWait(driver, 25).until(EC.presence_of_element_located((By.NAME, "username"))).send_keys(login)
     driver.find_element(By.NAME, "password").send_keys(senha)
     driver.find_element(By.XPATH, "//button[@type='submit']").click()
 
-    # Espera o redirecionamento completo para o painel
-    WebDriverWait(driver, 25).until(lambda d: "index" in d.current_url or "painel" in d.current_url)
+    # Espera o painel carregar
+    WebDriverWait(driver, 30).until(lambda d: "index" in d.current_url or "painel" in d.current_url)
     time.sleep(2)
     print(f"✅ Login realizado com sucesso! URL atual: {driver.current_url}")
 
 def acessar_todos_esportes(driver):
     print("🏆 Acessando menu 'Todos esportes'...")
     try:
-        link = WebDriverWait(driver, 10).until(
+        link = WebDriverWait(driver, 15).until(
             EC.element_to_be_clickable((By.XPATH, "//a[contains(.,'Todos esportes')]"))
         )
         driver.execute_script("arguments[0].click();", link)
         print("✅ Clicou em 'Todos esportes'")
     except Exception as e:
         print(f"⚠️ Falhou ao clicar no menu: {e}")
-        print("➡️ Tentando navegação direta para /esportes.php ...")
+        print("➡️ Acessando diretamente a URL de esportes...")
         driver.get("https://gerador.pro/esportes.php")
 
-    WebDriverWait(driver, 20).until(lambda d: "esportes" in d.current_url)
+    WebDriverWait(driver, 25).until(lambda d: "esportes" in d.current_url)
     print("✅ Página de esportes carregada!")
 
 def selecionar_modelo_roxo(driver):
@@ -67,7 +75,7 @@ def selecionar_modelo_roxo(driver):
         )
         driver.execute_script("arguments[0].click();", modelo)
         print("✅ Modelo 'Roxo' selecionado!")
-    except Exception:
+    except:
         print("⚠️ Não achou o modelo na tela, indo direto para a URL...")
         driver.get("https://gerador.pro/esportes.php?page=futebol&modelo=roxo")
 
@@ -79,7 +87,6 @@ def gerar_banners(driver):
     driver.execute_script("arguments[0].click();", botao)
     print("✅ Botão 'Gerar Banners' clicado!")
 
-    # Espera o popup de sucesso
     try:
         popup_ok = WebDriverWait(driver, 30).until(
             EC.element_to_be_clickable((By.XPATH, "//button[contains(.,'OK') or contains(.,'Ok')]"))
@@ -87,11 +94,11 @@ def gerar_banners(driver):
         print("🎉 Sucesso detectado! Clicando em OK...")
         popup_ok.click()
     except:
-        print("⚠️ Popup não encontrado — pode já ter redirecionado automaticamente.")
+        print("⚠️ Popup não encontrado — pode já ter redirecionado.")
 
 def enviar_todas_as_imagens(driver):
     print("📤 Enviando todas as imagens...")
-    WebDriverWait(driver, 25).until(lambda d: "cartazes" in d.current_url)
+    WebDriverWait(driver, 30).until(lambda d: "cartazes" in d.current_url)
     botao_enviar = WebDriverWait(driver, 20).until(
         EC.element_to_be_clickable((By.XPATH, "//button[contains(.,'Enviar Todas') or contains(.,'Enviar todas')]"))
     )
@@ -103,7 +110,6 @@ def main():
     print("🚀 Iniciando automação Esportes Roxo...")
     login = os.environ.get("LOGIN")
     senha = os.environ.get("SENHA")
-
     driver = setup_driver()
 
     try:
