@@ -371,7 +371,6 @@ def main():
         print("\n" + "=" * 60)
         print("🎯 PROCESSO FINALIZADO COM SUCESSO!")
         print("=" * 60)
-        enviar_telegram("✅ *Banners Esportes Roxo gerados e enviados com sucesso!*")
         
     except Exception as e:
         erro_completo = traceback.format_exc()
