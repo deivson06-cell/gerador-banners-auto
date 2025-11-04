@@ -1,123 +1,109 @@
-import os, time, requests
+import os, time
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from webdriver_manager.chrome import ChromeDriverManager
 
-# ==========================
-# CONFIGURAÇÕES
-# ==========================
-LOGIN = os.getenv("LOGIN")
-SENHA = os.getenv("SENHA")
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
-
-if not all([LOGIN, SENHA, BOT_TOKEN, CHAT_ID]):
-    print("❌ ERRO: Variáveis de ambiente obrigatórias não configuradas!")
-    print("Configure: TELEGRAM_BOT_TOKEN, CHAT_ID, LOGIN, SENHA")
-    exit(1)
-
-# ==========================
-# FUNÇÕES AUXILIARES
-# ==========================
-
 def setup_driver():
-    print("🚀 Iniciando navegador headless...")
+    print("🔧 Configurando Chrome (modo headless)...")
     options = Options()
-    options.add_argument("--headless=new")
+    options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
+    options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
+    print("✅ Chrome configurado!")
     return driver
 
-def enviar_telegram(msg, img_path=None):
+def fazer_login(driver, login, senha):
+    print("🔑 Fazendo login no GERADOR PRO...")
+    driver.get("https://gerador.pro/login.php")
+    WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.NAME, "username"))).send_keys(login)
+    driver.find_element(By.NAME, "password").send_keys(senha)
+    driver.find_element(By.XPATH, "//button[@type='submit']").click()
+    WebDriverWait(driver, 15).until(lambda d: "index.php" in d.current_url)
+    print("✅ Login realizado com sucesso!")
+
+def ir_para_nba(driver):
+    print("🏀 Acessando seção Gerar NBA...")
+    driver.get("https://gerador.pro/nba.php")
+    WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH, "//h1 | //div[contains(text(),'Basquete')]")))
+    print("✅ Página de modelos do NBA carregada!")
+
+def selecionar_basquete_roxo(driver):
+    print("🎨 Selecionando modelo Basquete Roxo...")
     try:
-        if img_path and os.path.exists(img_path):
-            url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
-            with open(img_path, "rb") as photo:
-                files = {"photo": photo}
-                data = {"chat_id": CHAT_ID, "caption": msg, "parse_mode": "Markdown"}
-                r = requests.post(url, data=data, files=files)
-        else:
-            url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-            data = {"chat_id": CHAT_ID, "text": msg, "parse_mode": "Markdown"}
-            r = requests.post(url, data=data)
-        print(f"📤 Mensagem enviada: {r.status_code}")
+        elemento = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//div[contains(text(),'Basquete Roxo') or contains(text(),'Roxo')]"))
+        )
+        driver.execute_script("arguments[0].click();", elemento)
+        print("✅ Modelo Basquete Roxo selecionado!")
     except Exception as e:
-        print(f"⚠️ Erro ao enviar mensagem: {e}")
+        raise Exception(f"❌ Erro ao selecionar modelo Basquete Roxo: {e}")
+    time.sleep(3)
 
-def salvar_print(driver, nome):
-    os.makedirs("prints", exist_ok=True)
-    path = f"prints/{time.strftime('%Y%m%d_%H%M%S')}_{nome}.png"
-    driver.save_screenshot(path)
-    print(f"📸 Print salvo: {path}")
-    return path
+def gerar_banners(driver):
+    print("⚙️ Gerando banners do NBA...")
+    WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Gerar Banners')]"))
+    ).click()
+    print("⏳ Gerando banners... aguardando mensagem de sucesso...")
+    WebDriverWait(driver, 30).until(
+        EC.presence_of_element_located((By.XPATH, "//div[contains(text(),'Sucesso') or contains(text(),'Banners gerados')]"))
+    )
+    print("✅ Banners gerados com sucesso!")
+    try:
+        ok_btn = driver.find_element(By.XPATH, "//button[contains(text(),'OK')]")
+        ok_btn.click()
+        print("✅ Clique em OK realizado!")
+    except:
+        print("⚠️ Botão OK não encontrado, continuando...")
 
-# ==========================
-# FLUXO PRINCIPAL
-# ==========================
+def enviar_para_telegram(driver):
+    print("📤 Procurando botão 'Enviar todas as imagens'...")
+    try:
+        WebDriverWait(driver, 30).until(
+            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Enviar') or contains(text(),'Enviar todas')]"))
+        ).click()
+        print("🎉 Banners do NBA enviados para o Telegram!")
+    except Exception as e:
+        print(f"⚠️ Não foi possível clicar em Enviar: {e}")
 
 def main():
+    print("🚀 INICIANDO AUTOMAÇÃO NBA - GERADOR PRO")
+    print(f"⏰ Início: {time.strftime('%d/%m/%Y %H:%M:%S')}")
+    
+    login = os.environ.get("LOGIN")
+    senha = os.environ.get("SENHA")
+    
+    if not login or not senha:
+        print("❌ LOGIN ou SENHA não configurados nas variáveis de ambiente!")
+        return
+
     driver = setup_driver()
     try:
-        print("🌐 Acessando site...")
-        driver.get("https://gerador.pro/login.php")
-
-        # LOGIN
-        print("🔐 Fazendo login...")
-        WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.NAME, "username"))).send_keys(LOGIN)
-        driver.find_element(By.NAME, "password").send_keys(SENHA)
-        driver.find_element(By.XPATH, "//button[contains(text(),'Entrar no painel')]").click()
-
-        # ABRIR BASQUETE ROXO
-        print("🏀 Acessando Basquete Roxo...")
-        WebDriverWait(driver, 15).until(EC.element_to_be_clickable((By.LINK_TEXT, "Basquete Roxo"))).click()
-
-        # AGUARDAR PÁGINA DO MODELO
-        WebDriverWait(driver, 20).until(EC.url_contains("nba.php"))
-
-        # CLICAR EM GERAR BANNERS
-        print("🖼️ Gerando banners...")
-        WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "generateButton"))).click()
-
-        # CONFIRMAR POPUP DE SUCESSO
-        WebDriverWait(driver, 20).until(EC.alert_is_present())
-        alert = driver.switch_to.alert
-        print(f"✅ Mensagem: {alert.text}")
-        alert.accept()
-
-        # ESPERAR REDIRECIONAMENTO
-        WebDriverWait(driver, 20).until(EC.url_contains("cartazes"))
-        print("📂 Acessando galeria de banners...")
-
-        # CLICAR EM ENVIAR TODAS AS IMAGENS
-        enviar_todas = WebDriverWait(driver, 20).until(
-            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Enviar Todas as Imagens')]"))
-        )
-        enviar_todas.click()
-        print("📤 Enviando todas as imagens...")
-
-        # PRINT FINAL
-        caminho = salvar_print(driver, "nba_enviadas")
-        enviar_telegram("✅ *Banners da NBA gerados e enviados com sucesso!*", caminho)
-
+        fazer_login(driver, login, senha)
+        ir_para_nba(driver)
+        selecionar_basquete_roxo(driver)
+        gerar_banners(driver)
+        enviar_para_telegram(driver)
+        print("✅ Fluxo NBA concluído com sucesso!")
     except Exception as e:
-        print(f"❌ Erro durante execução: {e}")
-        caminho = salvar_print(driver, "erro_nba")
-        enviar_telegram(f"⚠️ Erro na automação NBA: {e}", caminho)
+        print(f"❌ ERRO GERAL: {e}")
+        try:
+            print("📍 URL atual:", driver.current_url)
+            print("📄 Conteúdo parcial:", driver.find_element(By.TAG_NAME, "body").text[:400])
+        except:
+            pass
     finally:
         driver.quit()
-        print("🔒 Navegador fechado.")
+        print("🔒 Navegador fechado")
 
-# ==========================
-# EXECUÇÃO
-# ==========================
 if __name__ == "__main__":
     main()
