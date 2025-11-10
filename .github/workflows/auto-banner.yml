@@ -2,7 +2,7 @@ name: AutoGerar Futebol
 
 on:
   schedule:
-    - cron: "0 12 * * *"  # executa às 09:00 horário de Brasília (12:00 UTC)
+    - cron: "30 11 * * *"  # executa às 08:30 horário de Brasília (UTC-3)
   workflow_dispatch:
 
 jobs:
@@ -10,32 +10,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: 📂 Checkout do repositório
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: 🧩 Instalar Google Chrome
+        run: |
+          sudo apt update
+          sudo apt install -y google-chrome-stable chromium-driver
+
+      - name: 🐍 Configurar Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Instalar dependências
+      - name: 📦 Instalar dependências
         run: |
-          python -m pip install --upgrade pip
           pip install selenium webdriver-manager requests
 
-      - name: Instalar Google Chrome
-        run: |
-          sudo apt update
-          sudo apt install -y wget gnupg
-          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-          sudo apt update
-          sudo apt install -y google-chrome-stable
-
-      - name: Executar automação
+      - name: ⚙️ Executar automação Futebol
         env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
           LOGIN: ${{ secrets.LOGIN }}
           SENHA: ${{ secrets.SENHA }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          CHAT_ID: ${{ secrets.CHAT_ID }}
         run: python main.py
