@@ -2,8 +2,8 @@ name: AutoGerar Esportes
 
 on:
   schedule:
-    - cron: "0 11 * * *"   # executa às 08:00 da manhã (horário de Brasília = UTC-3)
-  workflow_dispatch:        # permite rodar manualmente
+    - cron: "0 11 * * *"   # executa às 08:00 horário de Brasília (UTC-3)
+  workflow_dispatch:
 
 jobs:
   run:
