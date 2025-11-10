@@ -13,7 +13,7 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from webdriver_manager.chrome import ChromeDriverManager
 
 # ============================================================
-# 🧩 Configurações e utilitários
+# 🧩 Funções utilitárias
 # ============================================================
 
 def setup_driver():
@@ -25,9 +25,17 @@ def setup_driver():
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+
+    # 🧠 User-Agent realista para evitar bloqueio por bot
+    options.add_argument(
+        "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/118.0.5993.118 Safari/537.36"
+    )
+
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
     return driver
+
 
 def enviar_telegram(msg):
     token = os.environ.get("BOT_TOKEN")
@@ -45,6 +53,7 @@ def enviar_telegram(msg):
     except Exception as e:
         print(f"⚠️ Falha ao enviar mensagem Telegram: {e}")
 
+
 def salvar_print(driver, nome):
     pasta = "prints"
     os.makedirs(pasta, exist_ok=True)
@@ -53,8 +62,9 @@ def salvar_print(driver, nome):
     print(f"📸 Print salvo: {caminho}")
     return caminho
 
+
 # ============================================================
-# 🧠 Login atualizado
+# 🔑 LOGIN ATUALIZADO E BLINDADO
 # ============================================================
 
 def fazer_login(driver, login, senha):
@@ -65,53 +75,57 @@ def fazer_login(driver, login, senha):
     driver.get("https://gerador.pro/login.php")
 
     try:
-        print("🔍 Localizando campo username...")
+        print("🔍 Localizando campos de login...")
         user = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "username")))
-        print("🔍 Localizando campo password...")
         passw = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "password")))
+        botao = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CLASS_NAME, "btn-login")))
 
         user.clear()
         user.send_keys(login)
-        print("🧩 Username inserido...")
+        print("🧩 Usuário inserido...")
         passw.clear()
         passw.send_keys(senha)
-        print("🔒 Password inserido...")
+        print("🔒 Senha inserida...")
 
-        print("➡️ Clicando no botão ENTRAR...")
-        driver.find_element(By.CLASS_NAME, "btn-login").click()
+        print("🖱️ Submetendo formulário via JavaScript...")
+        driver.execute_script("arguments[0].click();", botao)
 
-        print("⏳ Aguardando redirecionamento após login...")
+        # Espera dupla: URL OU texto do painel
+        print("⏳ Aguardando redirecionamento...")
         try:
-            WebDriverWait(driver, 8).until(EC.url_contains("painel"))
+            WebDriverWait(driver, 10).until(
+                lambda d: "painel" in d.current_url or "Painel" in d.page_source
+            )
             print("✅ Login realizado com sucesso!")
             return True
 
         except TimeoutException:
-            print("❌ Erro no login: nenhuma mudança de URL detectada.")
+            print("❌ Falha: site não redirecionou. Verificando mensagem de erro...")
             erro_msg = None
             try:
                 erro_msg = driver.find_element(By.CSS_SELECTOR, ".alert, .erro, .text-danger").text
-                print(f"📛 Mensagem de erro detectada: {erro_msg}")
+                print(f"📛 Mensagem detectada: {erro_msg}")
             except:
-                print("⚠️ Nenhuma mensagem de erro visível.")
+                print("⚠️ Nenhuma mensagem visível no DOM.")
 
             caminho = salvar_print(driver, "erro_login")
             if erro_msg:
-                enviar_telegram(f"❌ *Erro no script Esportes (login)*:\n{erro_msg}")
+                enviar_telegram(f"❌ *Erro no script Esportes (login):* {erro_msg}")
             else:
-                enviar_telegram("❌ *Erro no script Esportes:* Falha desconhecida ao tentar logar.")
+                enviar_telegram("❌ *Erro no script Esportes:* falha desconhecida no login.")
             enviar_telegram(f"🖼️ Print salvo: {caminho}")
             return False
 
     except Exception as e:
-        caminho = salvar_print(driver, "erro_geral_login")
-        enviar_telegram(f"❌ *Erro crítico no login:* {e}")
+        caminho = salvar_print(driver, "erro_login_critico")
+        enviar_telegram(f"❌ *Erro crítico no login Esportes:* {e}")
         enviar_telegram(f"🖼️ Print salvo: {caminho}")
         print(f"⚠️ Exceção durante login: {e}")
         return False
 
+
 # ============================================================
-# ⚙️ Etapas de geração e envio
+# ⚙️ GERAR BANNERS ESPORTES
 # ============================================================
 
 def gerar_banners_esportes(driver):
@@ -122,34 +136,29 @@ def gerar_banners_esportes(driver):
     driver.get("https://gerador.pro/nba.php")
 
     try:
-        # Clica no botão “Todos esportes” no menu lateral
-        print("🏀 Clicando no botão 'Todos Esportes'...")
+        print("🏀 Clicando em 'Todos Esportes'...")
         WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.XPATH, "//a[contains(.,'Todos Esportes')]"))
         ).click()
 
-        # Clica no modelo correto (exemplo: “Basquete Roxo”)
         print("🎨 Selecionando modelo 'Basquete Roxo'...")
         WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.XPATH, "//a[contains(@href, 'modelo=27')]"))
         ).click()
 
-        # Clica em “Gerar Banners”
-        print("⚙️ Gerando banners...")
+        print("⚙️ Clicando em 'Gerar Banners'...")
         WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.ID, "generateButton"))
         ).click()
 
-        # Espera popup de sucesso e confirma
-        print("⏳ Aguardando mensagem de sucesso...")
-        WebDriverWait(driver, 10).until(
-            EC.alert_is_present()
-        )
+        print("⏳ Aguardando popup de sucesso...")
+        WebDriverWait(driver, 10).until(EC.alert_is_present())
         alert = driver.switch_to.alert
         msg = alert.text
         print(f"✅ Popup detectado: {msg}")
         alert.accept()
-        print("👍 Popup confirmado, indo para galeria...")
+
+        print("👍 Banners gerados, indo para a galeria...")
 
     except Exception as e:
         caminho = salvar_print(driver, "erro_gerar_esportes")
@@ -160,6 +169,10 @@ def gerar_banners_esportes(driver):
     return True
 
 
+# ============================================================
+# 📤 ENVIAR TODAS AS IMAGENS
+# ============================================================
+
 def enviar_todas_as_imagens(driver):
     print("====================================================")
     print("ETAPA 3/5: Enviando todas as imagens")
@@ -169,8 +182,8 @@ def enviar_todas_as_imagens(driver):
         WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.XPATH, "//button[contains(.,'Enviar Todas as Imagens')]"))
         ).click()
-        print("📤 Botão 'Enviar Todas as Imagens' clicado!")
-        enviar_telegram("✅ Banners de esportes gerados e enviados com sucesso!")
+        print("📤 Envio realizado!")
+        enviar_telegram("✅ *Banners de esportes gerados e enviados com sucesso!* 🏆")
         return True
     except Exception as e:
         caminho = salvar_print(driver, "erro_enviar_todas")
@@ -180,7 +193,7 @@ def enviar_todas_as_imagens(driver):
 
 
 # ============================================================
-# 🏁 Fluxo principal
+# 🏁 EXECUÇÃO PRINCIPAL
 # ============================================================
 
 def main():
@@ -190,7 +203,7 @@ def main():
     senha = os.environ.get("SENHA")
 
     if not login or not senha:
-        enviar_telegram("⚠️ LOGIN ou SENHA não configurados no repositório!")
+        enviar_telegram("⚠️ LOGIN ou SENHA não configurados!")
         return
 
     driver = setup_driver()
