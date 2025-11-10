@@ -1,18 +1,23 @@
-import os
-import time
-import traceback
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import os, time, requests
+from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
-from selenium.common.exceptions import TimeoutException, NoSuchElementException, ElementClickInterceptedException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from webdriver_manager.chrome import ChromeDriverManager
-import requests
+
+# ============================================================
+# 🧩 Configurações e utilitários
+# ============================================================
 
 def setup_driver():
-    print("🔧 Configurando Chrome...")
+    print("🚀 Iniciando navegador Chrome (modo headless)...")
     options = Options()
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
@@ -20,385 +25,196 @@ def setup_driver():
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option('useAutomationExtension', False)
-    options.page_load_strategy = 'normal'
-    
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=options)
-    driver.set_page_load_timeout(60)
-    print("✅ Chrome configurado!")
+    options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
     return driver
 
 def enviar_telegram(msg):
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    token = os.environ.get("BOT_TOKEN")
     chat_id = os.environ.get("CHAT_ID")
     if not token or not chat_id:
-        print("⚠️ TELEGRAM_BOT_TOKEN ou CHAT_ID não configurados.")
+        print("⚠️ BOT_TOKEN ou CHAT_ID não configurados.")
         return
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    data = {"chat_id": chat_id, "text": msg, "parse_mode": "Markdown"}
     try:
-        response = requests.post(url, data=data, timeout=10)
-        if response.status_code == 200:
-            print("✅ Mensagem enviada ao Telegram!")
-        else:
-            print(f"⚠️ Falha ao enviar Telegram: {response.status_code}")
+        requests.post(f"https://api.telegram.org/bot{token}/sendMessage", data={
+            "chat_id": chat_id,
+            "text": msg,
+            "parse_mode": "Markdown"
+        })
+        print("📨 Mensagem enviada ao Telegram!")
     except Exception as e:
-        print(f"⚠️ Erro ao enviar Telegram: {e}")
+        print(f"⚠️ Falha ao enviar mensagem Telegram: {e}")
 
-def wait_for_page_load(driver, timeout=10):
-    """Aguarda a página carregar completamente"""
-    try:
-        WebDriverWait(driver, timeout).until(
-            lambda d: d.execute_script("return document.readyState") == "complete"
-        )
-        time.sleep(2)  # Espera adicional para JS executar
-        return True
-    except:
-        return False
+def salvar_print(driver, nome):
+    pasta = "prints"
+    os.makedirs(pasta, exist_ok=True)
+    caminho = f"{pasta}/{datetime.now().strftime('%Y%m%d_%H%M%S')}_{nome}.png"
+    driver.save_screenshot(caminho)
+    print(f"📸 Print salvo: {caminho}")
+    return caminho
+
+# ============================================================
+# 🧠 Login atualizado
+# ============================================================
 
 def fazer_login(driver, login, senha):
-    print("🔑 Fazendo login no GERADOR PRO...")
+    print("====================================================")
+    print("ETAPA 1/5: Login")
+    print("====================================================")
+
+    driver.get("https://gerador.pro/login.php")
+
     try:
-        driver.get("https://gerador.pro/login.php")
-        wait_for_page_load(driver)
-        
-        print("Localizando campo username...")
-        username_field = WebDriverWait(driver, 20).until(
-            EC.presence_of_element_located((By.NAME, "username"))
-        )
-        username_field.clear()
-        time.sleep(0.5)
-        username_field.send_keys(login)
-        print(f"Username '{login}' inserido")
-        
-        print("Localizando campo password...")
-        password_field = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.NAME, "password"))
-        )
-        password_field.clear()
-        time.sleep(0.5)
-        password_field.send_keys(senha)
-        print("Password inserido")
-        
-        print("Localizando botão submit...")
-        submit_button = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.XPATH, "//button[@type='submit']"))
-        )
-        
-        # Tenta clicar de diferentes formas
+        print("🔍 Localizando campo username...")
+        user = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "username")))
+        print("🔍 Localizando campo password...")
+        passw = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "password")))
+
+        user.clear()
+        user.send_keys(login)
+        print("🧩 Username inserido...")
+        passw.clear()
+        passw.send_keys(senha)
+        print("🔒 Password inserido...")
+
+        print("➡️ Clicando no botão ENTRAR...")
+        driver.find_element(By.CLASS_NAME, "btn-login").click()
+
+        print("⏳ Aguardando redirecionamento após login...")
         try:
-            submit_button.click()
-        except ElementClickInterceptedException:
-            driver.execute_script("arguments[0].click();", submit_button)
-        
-        print("Aguardando redirecionamento após login...")
-        WebDriverWait(driver, 20).until(
-            lambda d: "login.php" not in d.current_url
-        )
-        
-        wait_for_page_load(driver)
-        print(f"✅ Login realizado! URL atual: {driver.current_url}")
-        
-    except Exception as e:
-        print(f"❌ Erro no login: {e}")
-        print(f"URL atual: {driver.current_url}")
-        raise
+            WebDriverWait(driver, 8).until(EC.url_contains("painel"))
+            print("✅ Login realizado com sucesso!")
+            return True
 
-def acessar_todos_esportes(driver):
-    print("🏆 Acessando menu 'Todos esportes'...")
-    
-    try:
-        wait_for_page_load(driver, 15)
-        
-        # Tenta diferentes formas de localizar o link
-        links_tentativas = [
-            (By.XPATH, "//a[contains(text(),'Todos esportes')]"),
-            (By.XPATH, "//a[contains(@href,'esportes.php')]"),
-            (By.LINK_TEXT, "Todos esportes"),
-            (By.PARTIAL_LINK_TEXT, "esportes"),
-        ]
-        
-        link_encontrado = False
-        for by, value in links_tentativas:
-            try:
-                print(f"Tentando localizar com {by}: {value}")
-                link = WebDriverWait(driver, 5).until(
-                    EC.presence_of_element_located((by, value))
-                )
-                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", link)
-                time.sleep(1)
-                driver.execute_script("arguments[0].click();", link)
-                link_encontrado = True
-                print(f"✅ Clicou no link usando {by}")
-                break
-            except Exception as e:
-                print(f"Tentativa com {by} falhou: {str(e)[:100]}")
-                continue
-        
-        if not link_encontrado:
-            print("⚠️ Link não encontrado, acessando URL direta")
-            driver.get("https://gerador.pro/esportes.php")
-        
-        wait_for_page_load(driver, 20)
-        
-        # Verifica se chegou na página certa
-        if "esportes" not in driver.current_url.lower():
-            raise Exception(f"Não chegou na página de esportes. URL: {driver.current_url}")
-        
-        print(f"✅ Página de esportes carregada! URL: {driver.current_url}")
-        
-    except Exception as e:
-        print(f"❌ Erro ao acessar esportes: {e}")
-        raise
-
-def selecionar_modelo_roxo(driver):
-    print("🎨 Selecionando modelo 'Esportes Roxo'...")
-    
-    try:
-        wait_for_page_load(driver, 10)
-        
-        # Scroll para ver os modelos
-        driver.execute_script("window.scrollTo(0, 400);")
-        time.sleep(2)
-        
-        # Lista de seletores para tentar
-        seletores = [
-            (By.XPATH, "//div[contains(text(),'Esportes Roxo')]"),
-            (By.XPATH, "//div[contains(text(),'Roxo')]"),
-            (By.XPATH, "//*[contains(@class,'modelo') and contains(text(),'Roxo')]"),
-            (By.XPATH, "//button[contains(text(),'Roxo')]"),
-            (By.XPATH, "//*[contains(text(),'roxo')]"),
-        ]
-        
-        modelo_clicado = False
-        for by, selector in seletores:
-            try:
-                print(f"Tentando seletor: {selector}")
-                modelo = WebDriverWait(driver, 5).until(
-                    EC.presence_of_element_located((by, selector))
-                )
-                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", modelo)
-                time.sleep(1)
-                driver.execute_script("arguments[0].click();", modelo)
-                modelo_clicado = True
-                print(f"✅ Modelo clicado usando: {selector}")
-                time.sleep(3)
-                break
-            except Exception as e:
-                print(f"Seletor falhou: {str(e)[:80]}")
-                continue
-        
-        if not modelo_clicado:
-            print("⚠️ Tentando URL direta com parâmetro")
-            driver.get("https://gerador.pro/esportes.php?modelo=roxo")
-            wait_for_page_load(driver)
-        
-        print("✅ Modelo Roxo selecionado!")
-        
-    except Exception as e:
-        print(f"❌ Erro ao selecionar modelo: {e}")
-        raise
-
-def gerar_banners(driver):
-    print("⚙️ Gerando banners...")
-    
-    try:
-        wait_for_page_load(driver, 10)
-        
-        # Scroll até o final
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(2)
-        
-        print("Procurando botão 'Gerar Banners'...")
-        seletores_botao = [
-            (By.XPATH, "//button[contains(text(),'Gerar Banners')]"),
-            (By.XPATH, "//button[contains(text(),'Gerar banners')]"),
-            (By.XPATH, "//button[contains(text(),'GERAR')]"),
-            (By.XPATH, "//*[@type='submit' and contains(text(),'Gerar')]"),
-        ]
-        
-        botao = None
-        for by, selector in seletores_botao:
-            try:
-                botao = WebDriverWait(driver, 5).until(
-                    EC.presence_of_element_located((by, selector))
-                )
-                if botao:
-                    print(f"Botão encontrado com: {selector}")
-                    break
-            except:
-                continue
-        
-        if not botao:
-            raise Exception("Botão 'Gerar Banners' não encontrado")
-        
-        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", botao)
-        time.sleep(1)
-        driver.execute_script("arguments[0].click();", botao)
-        print("✅ Botão 'Gerar Banners' clicado!")
-
-        # Aguarda processamento - tempo maior
-        print("Aguardando processamento dos banners...")
-        time.sleep(8)
-
-        # Tenta fechar popup de sucesso se aparecer
-        try:
-            popup_ok = WebDriverWait(driver, 30).until(
-                EC.presence_of_element_located((By.XPATH, "//button[contains(text(),'OK') or contains(text(),'Ok')]"))
-            )
-            print("🎉 Popup de sucesso encontrado!")
-            driver.execute_script("arguments[0].click();", popup_ok)
-            time.sleep(3)
         except TimeoutException:
-            print("⚠️ Popup não apareceu (isso pode ser normal)")
-        
-        wait_for_page_load(driver, 15)
-        
+            print("❌ Erro no login: nenhuma mudança de URL detectada.")
+            erro_msg = None
+            try:
+                erro_msg = driver.find_element(By.CSS_SELECTOR, ".alert, .erro, .text-danger").text
+                print(f"📛 Mensagem de erro detectada: {erro_msg}")
+            except:
+                print("⚠️ Nenhuma mensagem de erro visível.")
+
+            caminho = salvar_print(driver, "erro_login")
+            if erro_msg:
+                enviar_telegram(f"❌ *Erro no script Esportes (login)*:\n{erro_msg}")
+            else:
+                enviar_telegram("❌ *Erro no script Esportes:* Falha desconhecida ao tentar logar.")
+            enviar_telegram(f"🖼️ Print salvo: {caminho}")
+            return False
+
     except Exception as e:
-        print(f"❌ Erro ao gerar banners: {e}")
-        raise
+        caminho = salvar_print(driver, "erro_geral_login")
+        enviar_telegram(f"❌ *Erro crítico no login:* {e}")
+        enviar_telegram(f"🖼️ Print salvo: {caminho}")
+        print(f"⚠️ Exceção durante login: {e}")
+        return False
+
+# ============================================================
+# ⚙️ Etapas de geração e envio
+# ============================================================
+
+def gerar_banners_esportes(driver):
+    print("====================================================")
+    print("ETAPA 2/5: Acessar aba de esportes e gerar banners")
+    print("====================================================")
+
+    driver.get("https://gerador.pro/nba.php")
+
+    try:
+        # Clica no botão “Todos esportes” no menu lateral
+        print("🏀 Clicando no botão 'Todos Esportes'...")
+        WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//a[contains(.,'Todos Esportes')]"))
+        ).click()
+
+        # Clica no modelo correto (exemplo: “Basquete Roxo”)
+        print("🎨 Selecionando modelo 'Basquete Roxo'...")
+        WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//a[contains(@href, 'modelo=27')]"))
+        ).click()
+
+        # Clica em “Gerar Banners”
+        print("⚙️ Gerando banners...")
+        WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.ID, "generateButton"))
+        ).click()
+
+        # Espera popup de sucesso e confirma
+        print("⏳ Aguardando mensagem de sucesso...")
+        WebDriverWait(driver, 10).until(
+            EC.alert_is_present()
+        )
+        alert = driver.switch_to.alert
+        msg = alert.text
+        print(f"✅ Popup detectado: {msg}")
+        alert.accept()
+        print("👍 Popup confirmado, indo para galeria...")
+
+    except Exception as e:
+        caminho = salvar_print(driver, "erro_gerar_esportes")
+        enviar_telegram(f"❌ *Erro ao gerar banners esportes:* {e}")
+        enviar_telegram(f"🖼️ Print salvo: {caminho}")
+        return False
+
+    return True
+
 
 def enviar_todas_as_imagens(driver):
-    print("📤 Enviando todas as imagens...")
-    
+    print("====================================================")
+    print("ETAPA 3/5: Enviando todas as imagens")
+    print("====================================================")
+
     try:
-        # Aguarda chegar na página de cartazes
-        print("Aguardando página de cartazes...")
-        WebDriverWait(driver, 30).until(
-            lambda d: "cartazes" in d.current_url.lower() or "cartaz" in d.current_url.lower()
-        )
-        
-        wait_for_page_load(driver, 15)
-        print(f"✅ Página de cartazes carregada: {driver.current_url}")
-        
-        # Scroll até o final
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(3)
-        
-        print("Procurando botão 'Enviar Todas'...")
-        seletores_enviar = [
-            (By.XPATH, "//button[contains(text(),'Enviar Todas')]"),
-            (By.XPATH, "//button[contains(text(),'Enviar todas')]"),
-            (By.XPATH, "//button[contains(text(),'ENVIAR TODAS')]"),
-            (By.XPATH, "//button[contains(text(),'Enviar')]"),
-        ]
-        
-        botao_enviar = None
-        for by, selector in seletores_enviar:
-            try:
-                botao_enviar = WebDriverWait(driver, 5).until(
-                    EC.presence_of_element_located((by, selector))
-                )
-                if botao_enviar:
-                    print(f"Botão encontrado com: {selector}")
-                    break
-            except:
-                continue
-        
-        if not botao_enviar:
-            raise Exception("Botão 'Enviar Todas' não encontrado")
-        
-        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", botao_enviar)
-        time.sleep(1)
-        driver.execute_script("arguments[0].click();", botao_enviar)
-        print("✅ Botão 'Enviar Todas as Imagens' clicado!")
-        
-        # Aguarda envio completar
-        time.sleep(10)
-        print("✅ Envio concluído!")
-        
+        WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//button[contains(.,'Enviar Todas as Imagens')]"))
+        ).click()
+        print("📤 Botão 'Enviar Todas as Imagens' clicado!")
+        enviar_telegram("✅ Banners de esportes gerados e enviados com sucesso!")
+        return True
     except Exception as e:
-        print(f"❌ Erro ao enviar imagens: {e}")
-        raise
+        caminho = salvar_print(driver, "erro_enviar_todas")
+        enviar_telegram(f"❌ *Erro ao enviar imagens esportes:* {e}")
+        enviar_telegram(f"🖼️ Print salvo: {caminho}")
+        return False
+
+
+# ============================================================
+# 🏁 Fluxo principal
+# ============================================================
 
 def main():
-    print("=" * 60)
-    print("🚀 AUTOMAÇÃO ESPORTES ROXO - INICIANDO")
-    print("=" * 60)
-    
-    # Validação de variáveis de ambiente
+    print("🚀 Iniciando automação Esportes...")
+
     login = os.environ.get("LOGIN")
     senha = os.environ.get("SENHA")
-    
+
     if not login or not senha:
-        msg_erro = "❌ LOGIN ou SENHA não configurados nas variáveis de ambiente!"
-        print(msg_erro)
-        enviar_telegram(f"❌ *Erro Crítico:*\n{msg_erro}")
+        enviar_telegram("⚠️ LOGIN ou SENHA não configurados no repositório!")
         return
-    
-    print(f"✅ Credenciais encontradas para usuário: {login}")
-    
-    driver = None
-    
+
+    driver = setup_driver()
+
     try:
-        # Etapa 1: Setup
-        driver = setup_driver()
-        print("\n" + "=" * 60)
-        
-        # Etapa 2: Login
-        print("ETAPA 1/5: Login")
-        print("=" * 60)
-        fazer_login(driver, login, senha)
-        
-        # Etapa 3: Acessar esportes
-        print("\n" + "=" * 60)
-        print("ETAPA 2/5: Acessar Todos Esportes")
-        print("=" * 60)
-        acessar_todos_esportes(driver)
-        
-        # Etapa 4: Selecionar modelo
-        print("\n" + "=" * 60)
-        print("ETAPA 3/5: Selecionar Modelo Roxo")
-        print("=" * 60)
-        selecionar_modelo_roxo(driver)
-        
-        # Etapa 5: Gerar banners
-        print("\n" + "=" * 60)
-        print("ETAPA 4/5: Gerar Banners")
-        print("=" * 60)
-        gerar_banners(driver)
-        
-        # Etapa 6: Enviar imagens
-        print("\n" + "=" * 60)
-        print("ETAPA 5/5: Enviar Imagens")
-        print("=" * 60)
+        if not fazer_login(driver, login, senha):
+            driver.quit()
+            return
+
+        if not gerar_banners_esportes(driver):
+            driver.quit()
+            return
+
         enviar_todas_as_imagens(driver)
-        
-        # Sucesso!
-        print("\n" + "=" * 60)
-        print("🎯 PROCESSO FINALIZADO COM SUCESSO!")
-        print("=" * 60)
-        
+
     except Exception as e:
-        erro_completo = traceback.format_exc()
-        print("\n" + "=" * 60)
-        print("❌ ERRO DURANTE EXECUÇÃO")
-        print("=" * 60)
-        print(f"Erro: {str(e)}")
-        print(f"\nStacktrace completo:\n{erro_completo}")
-        
-        enviar_telegram(f"❌ *Erro no script Esportes:*\n```\n{str(e)[:300]}\n```")
-        
-        # Salva screenshot
-        if driver:
-            try:
-                screenshot_path = "erro_screenshot.png"
-                driver.save_screenshot(screenshot_path)
-                print(f"\n📸 Screenshot salvo: {screenshot_path}")
-                print(f"URL no momento do erro: {driver.current_url}")
-            except Exception as screenshot_error:
-                print(f"⚠️ Não foi possível salvar screenshot: {screenshot_error}")
-    
+        caminho = salvar_print(driver, "erro_geral")
+        enviar_telegram(f"❌ *Erro geral no script Esportes:* {e}")
+        enviar_telegram(f"🖼️ Print salvo: {caminho}")
+
     finally:
-        if driver:
-            try:
-                driver.quit()
-                print("\n🔒 Navegador fechado.")
-            except:
-                pass
+        driver.quit()
+        print("🔒 Navegador fechado.")
+
 
 if __name__ == "__main__":
     main()
