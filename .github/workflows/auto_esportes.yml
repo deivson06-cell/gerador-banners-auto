@@ -1,9 +1,9 @@
 name: AutoGerar Esportes
 
 on:
-  schedule:
-    - cron: "35 11 * * *"  # executa às 08:35 (horário de Brasília)
   workflow_dispatch:
+  schedule:
+    - cron: "35 11 * * *"  # executa às 08:35 BRT (UTC-3)
 
 jobs:
   run:
@@ -24,7 +24,8 @@ jobs:
           python-version: "3.11"
 
       - name: 📦 Instalar dependências
-        run: pip install selenium webdriver-manager requests
+        run: |
+          pip install selenium webdriver-manager requests cloudscraper
 
       - name: ⚙️ Executar automação Esportes
         env:
