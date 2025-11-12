@@ -1,56 +1,49 @@
 import os, time, random
-from selenium import webdriver
+import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 
 # ------------------------------------------------------------
-# CONFIGURAÇÃO DO NAVEGADOR (ANTI-CLOUDFLARE)
+# CONFIGURAÇÃO DO NAVEGADOR (UNDETECTED CHROMEDRIVER)
 # ------------------------------------------------------------
 def setup_driver():
-    print("🔧 Configurando Chrome com estratégias anti-detecção...")
-    options = Options()
+    print("🔧 Configurando Chrome com undetected-chromedriver...")
     
-    # Estratégias para evitar detecção do Cloudflare
+    options = uc.ChromeOptions()
+    
+    # Configurações básicas
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option('useAutomationExtension', False)
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
+    options.add_argument("--start-maximized")
     
-    # User agent mais realista
+    # Desabilitar recursos que podem causar problemas
+    options.add_argument("--disable-web-security")
+    options.add_argument("--disable-features=IsolateOrigins,site-per-process")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    
+    # User agent
     options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
     
-    # Headers adicionais
-    options.add_argument("--accept-language=pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7")
-    options.add_argument("--accept=text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
-    
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=options)
-    
-    # Remover propriedades que indicam automação
-    driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-        'source': '''
-            Object.defineProperty(navigator, 'webdriver', {
-                get: () => undefined
-            });
-            Object.defineProperty(navigator, 'plugins', {
-                get: () => [1, 2, 3, 4, 5]
-            });
-            Object.defineProperty(navigator, 'languages', {
-                get: () => ['pt-BR', 'pt', 'en-US', 'en']
-            });
-        '''
-    })
-    
-    print("✅ Chrome configurado com proteção anti-detecção")
-    return driver
+    try:
+        # undetected_chromedriver com versão específica
+        driver = uc.Chrome(
+            options=options,
+            use_subprocess=True,
+            version_main=None  # Detecta automaticamente
+        )
+        print("✅ Chrome configurado com proteção anti-detecção avançada")
+        return driver
+    except Exception as e:
+        print(f"⚠️ Erro ao configurar undetected-chromedriver: {e}")
+        print("Tentando com método alternativo...")
+        
+        # Fallback: tentar sem subprocess
+        driver = uc.Chrome(options=options, use_subprocess=False)
+        return driver
 
 # ------------------------------------------------------------
 # FUNÇÃO AUXILIAR: AGUARDAR RANDOM
@@ -62,215 +55,327 @@ def wait_random(min_sec=1, max_sec=3):
 # ------------------------------------------------------------
 # FUNÇÃO AUXILIAR: VERIFICAR CLOUDFLARE
 # ------------------------------------------------------------
-def verificar_cloudflare(driver):
-    """Verifica se o Cloudflare está bloqueando"""
-    page_text = driver.page_source.lower()
-    if "cloudflare" in page_text and ("checking" in page_text or "verify" in page_text):
-        print("⚠️ Cloudflare detectado! Aguardando bypass...")
-        for i in range(30):  # Aguarda até 30 segundos
+def verificar_cloudflare(driver, max_wait=45):
+    """Verifica se o Cloudflare está bloqueando e aguarda bypass"""
+    page_source = driver.page_source.lower()
+    
+    if "cloudflare" in page_source or "just a moment" in page_source or "checking" in page_source:
+        print("⚠️ Cloudflare detectado! Aguardando bypass automático...")
+        
+        for i in range(max_wait):
             time.sleep(1)
-            if "cloudflare" not in driver.page_source.lower():
-                print("✅ Cloudflare superado!")
+            current_source = driver.page_source.lower()
+            
+            if ("cloudflare" not in current_source and 
+                "just a moment" not in current_source and 
+                "checking" not in current_source):
+                print(f"✅ Cloudflare superado após {i+1} segundos!")
+                wait_random(1, 2)
                 return True
-        print("❌ Não foi possível superar o Cloudflare")
+            
+            if i % 5 == 0 and i > 0:
+                print(f"   ... aguardando ({i}/{max_wait}s)")
+        
+        print(f"❌ Timeout: Cloudflare não foi superado após {max_wait}s")
         return False
+    
     return True
 
 # ------------------------------------------------------------
-# LOGIN COM RETRY
+# FUNÇÃO AUXILIAR: VERIFICAR SE PÁGINA CARREGOU
+# ------------------------------------------------------------
+def esperar_carregamento_completo(driver, timeout=30):
+    """Aguarda o carregamento completo da página"""
+    try:
+        WebDriverWait(driver, timeout).until(
+            lambda d: d.execute_script("return document.readyState") == "complete"
+        )
+        return True
+    except:
+        return False
+
+# ------------------------------------------------------------
+# LOGIN COM ESTRATÉGIA MELHORADA
 # ------------------------------------------------------------
 def fazer_login(driver, login, senha):
     print("🔑 Acessando página de login...")
     
-    for tentativa in range(3):
+    max_tentativas = 3
+    
+    for tentativa in range(max_tentativas):
         try:
-            driver.get("https://gerador.pro/login.php")
-            wait_random(2, 4)
+            print(f"\n📍 Tentativa {tentativa + 1}/{max_tentativas}")
             
-            if not verificar_cloudflare(driver):
-                if tentativa < 2:
-                    print(f"🔄 Tentativa {tentativa + 1}/3 - Tentando novamente...")
+            # Navega para página de login
+            driver.get("https://gerador.pro/login.php")
+            wait_random(3, 5)  # Aguarda mais tempo inicialmente
+            
+            # Espera carregamento completo
+            if not esperar_carregamento_completo(driver, 20):
+                print("⚠️ Página não carregou completamente")
+            
+            # Verifica Cloudflare
+            if not verificar_cloudflare(driver, max_wait=60):
+                if tentativa < max_tentativas - 1:
+                    print(f"🔄 Aguardando antes da próxima tentativa...")
+                    wait_random(5, 10)
                     continue
                 else:
-                    raise Exception("Cloudflare bloqueou todas as tentativas")
+                    raise Exception("Cloudflare bloqueou todas as tentativas de login")
             
-            print(f"🔐 Preenchendo credenciais (tentativa {tentativa + 1})...")
-            username_field = WebDriverWait(driver, 15).until(
+            print("🔐 Preenchendo credenciais...")
+            
+            # Localiza e preenche campo de usuário
+            username_field = WebDriverWait(driver, 20).until(
                 EC.presence_of_element_located((By.NAME, "username"))
             )
-            username_field.clear()
-            wait_random(0.5, 1)
-            username_field.send_keys(login)
             
-            wait_random(0.5, 1)
+            # Simula digitação humana
+            username_field.clear()
+            wait_random(0.8, 1.5)
+            for char in login:
+                username_field.send_keys(char)
+                time.sleep(random.uniform(0.05, 0.15))
+            
+            wait_random(0.8, 1.5)
+            
+            # Localiza e preenche senha
             password_field = driver.find_element(By.NAME, "password")
             password_field.clear()
-            password_field.send_keys(senha)
+            wait_random(0.5, 1)
+            for char in senha:
+                password_field.send_keys(char)
+                time.sleep(random.uniform(0.05, 0.15))
             
             wait_random(1, 2)
+            
+            # Clica no botão de submit
             submit_btn = driver.find_element(By.XPATH, "//button[@type='submit']")
+            driver.execute_script("arguments[0].scrollIntoView(true);", submit_btn)
+            wait_random(0.5, 1)
             submit_btn.click()
             
-            print("⏳ Aguardando redirecionamento...")
-            WebDriverWait(driver, 20).until(lambda d: "index.php" in d.current_url or "dashboard" in d.current_url.lower())
+            print("⏳ Aguardando redirecionamento após login...")
             
-            wait_random(1, 2)
-            if not verificar_cloudflare(driver):
-                continue
+            # Aguarda redirecionamento
+            for i in range(30):
+                current_url = driver.current_url
+                if "index.php" in current_url or "dashboard" in current_url.lower():
+                    print(f"✅ Redirecionado para: {current_url}")
+                    break
+                time.sleep(1)
+            else:
+                print(f"⚠️ URL atual após tentativa de login: {driver.current_url}")
+            
+            wait_random(2, 3)
+            
+            # Verifica Cloudflare após login
+            if not verificar_cloudflare(driver, max_wait=45):
+                if tentativa < max_tentativas - 1:
+                    continue
+                else:
+                    raise Exception("Cloudflare bloqueou após login")
+            
+            # Verifica se login foi bem-sucedido
+            if "index.php" in driver.current_url or "dashboard" in driver.current_url.lower():
+                print("✅ Login realizado com sucesso!")
+                return True
+            else:
+                print(f"⚠️ URL inesperada: {driver.current_url}")
+                if tentativa < max_tentativas - 1:
+                    continue
                 
-            print("✅ Login realizado com sucesso!")
-            return True
-            
         except Exception as e:
             print(f"⚠️ Erro na tentativa {tentativa + 1}: {e}")
-            if tentativa < 2:
-                wait_random(3, 5)
+            if tentativa < max_tentativas - 1:
+                print("🔄 Aguardando antes de tentar novamente...")
+                wait_random(5, 8)
             else:
                 raise
+    
+    raise Exception("Não foi possível fazer login após todas as tentativas")
 
 # ------------------------------------------------------------
 # ACESSA SEÇÃO GERAR FUTEBOL
 # ------------------------------------------------------------
 def ir_para_futebol(driver):
-    print("⚽ Acessando seção de Futebol...")
-    wait_random(2, 3)
+    print("\n⚽ Acessando seção de Futebol...")
+    wait_random(2, 4)
     
     try:
-        # Tenta encontrar e clicar no botão
-        botao = WebDriverWait(driver, 10).until(
+        # Tenta clicar no menu
+        botao = WebDriverWait(driver, 15).until(
             EC.element_to_be_clickable((By.XPATH, "//a[contains(text(),'Gerar Futebol') or contains(.,'Gerar Futebol')]"))
         )
+        driver.execute_script("arguments[0].scrollIntoView(true);", botao)
+        wait_random(0.5, 1)
         driver.execute_script("arguments[0].click();", botao)
         print("✅ Menu clicado!")
-        wait_random(2, 4)
+        wait_random(3, 5)
         
-        # Verifica se URL mudou
-        if "futbanner.php" not in driver.current_url:
-            print("⚠️ URL não mudou, navegando diretamente...")
-            driver.get("https://gerador.pro/futbanner.php?page=futebol")
-            wait_random(2, 3)
-    
     except Exception as e:
-        print(f"⚠️ Navegação direta: {e}")
+        print(f"⚠️ Erro ao clicar no menu: {e}")
+    
+    # Sempre tenta navegação direta como fallback
+    if "futbanner.php" not in driver.current_url:
+        print("➡️ Navegando diretamente para página de futebol...")
         driver.get("https://gerador.pro/futbanner.php?page=futebol")
-        wait_random(2, 3)
+        wait_random(3, 5)
     
-    verificar_cloudflare(driver)
+    # Verifica Cloudflare
+    verificar_cloudflare(driver, max_wait=45)
+    esperar_carregamento_completo(driver)
     
-    # Aguarda página carregar
-    WebDriverWait(driver, 25).until(
-        EC.presence_of_element_located((By.XPATH, "//h1 | //div[contains(@class,'modelo') or contains(@class,'banner')]"))
-    )
-    print("✅ Página de Futebol carregada!")
+    # Aguarda elementos da página
+    try:
+        WebDriverWait(driver, 30).until(
+            EC.presence_of_element_located((By.XPATH, "//h1 | //div[contains(@class,'modelo')] | //a[contains(@href,'modelo')]"))
+        )
+        print("✅ Página de Futebol carregada!")
+    except Exception as e:
+        print(f"⚠️ Erro ao verificar carregamento: {e}")
+        print(f"📍 URL atual: {driver.current_url}")
 
 # ------------------------------------------------------------
 # SELECIONA MODELO 15
 # ------------------------------------------------------------
 def selecionar_modelo_15(driver):
-    print("🎨 Selecionando modelo 15...")
-    wait_random(1, 2)
+    print("\n🎨 Selecionando modelo 15...")
+    wait_random(2, 3)
     
-    modelo = WebDriverWait(driver, 25).until(
+    modelo = WebDriverWait(driver, 30).until(
         EC.element_to_be_clickable((By.XPATH, "//a[contains(@href,'modelo=15')]"))
     )
-    driver.execute_script("arguments[0].scrollIntoView(true);", modelo)
-    wait_random(0.5, 1)
+    
+    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", modelo)
+    wait_random(1, 2)
     driver.execute_script("arguments[0].click();", modelo)
     
     print("✅ Modelo 15 selecionado!")
-    wait_random(2, 3)
+    wait_random(3, 4)
+    esperar_carregamento_completo(driver)
 
 # ------------------------------------------------------------
 # GERAR BANNERS
 # ------------------------------------------------------------
 def gerar_banners(driver):
-    print("⚙️ Gerando banners...")
-    wait_random(1, 2)
+    print("\n⚙️ Gerando banners...")
+    wait_random(2, 3)
     
-    botao = WebDriverWait(driver, 25).until(
+    botao = WebDriverWait(driver, 30).until(
         EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Gerar Banners')]"))
     )
-    driver.execute_script("arguments[0].scrollIntoView(true);", botao)
-    wait_random(0.5, 1)
+    
+    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", botao)
+    wait_random(1, 2)
     driver.execute_script("arguments[0].click();", botao)
     
-    print("🟠 Aguardando processamento (pode levar até 90s)...")
+    print("🟠 Aguardando processamento dos banners...")
+    print("   (Isso pode levar até 2 minutos)")
     
     try:
-        WebDriverWait(driver, 120).until(
-            EC.presence_of_element_located((By.XPATH, "//*[contains(text(),'Sucesso') or contains(text(),'Banners gerados') or contains(text(),'OK')]"))
+        # Aguarda popup de sucesso com timeout maior
+        WebDriverWait(driver, 150).until(
+            EC.presence_of_element_located((By.XPATH, "//*[contains(text(),'Sucesso') or contains(text(),'sucesso') or contains(text(),'Banners gerados') or contains(text(),'OK')]"))
         )
         print("✅ Processamento concluído!")
         
-        wait_random(1, 2)
+        wait_random(2, 3)
+        
+        # Tenta fechar popup
         try:
-            ok_btn = driver.find_element(By.XPATH, "//button[contains(text(),'OK') or contains(text(),'Ok')]")
+            ok_btn = driver.find_element(By.XPATH, "//button[contains(text(),'OK') or contains(text(),'Ok') or contains(text(),'ok')]")
             driver.execute_script("arguments[0].click();", ok_btn)
             print("✅ Popup fechado")
         except:
-            print("⚠️ Sem popup para fechar")
+            print("⚠️ Popup não encontrado ou já fechado")
         
-        wait_random(2, 3)
+        wait_random(3, 4)
+        
     except Exception as e:
-        print(f"⚠️ Timeout ou erro: {e}")
+        print(f"⚠️ Timeout ou erro ao gerar: {e}")
+        print("Tentando prosseguir mesmo assim...")
 
 # ------------------------------------------------------------
 # ENVIAR PARA TELEGRAM
 # ------------------------------------------------------------
 def enviar_para_telegram(driver):
-    print("📤 Preparando envio para Telegram...")
+    print("\n📤 Preparando envio para Telegram...")
     
     # Aguarda estar na página da galeria
-    WebDriverWait(driver, 60).until(EC.url_contains("futebol/cartazes"))
-    wait_random(2, 3)
+    try:
+        WebDriverWait(driver, 90).until(EC.url_contains("futebol/cartazes"))
+        print("✅ Na página da galeria")
+    except:
+        print(f"⚠️ URL atual: {driver.current_url}")
+        if "cartazes" not in driver.current_url:
+            print("❌ Não está na página de galeria. Abortando envio.")
+            return
+    
+    wait_random(3, 5)
+    esperar_carregamento_completo(driver)
     
     print("🕓 Aguardando imagens carregarem...")
-    for i in range(25):
+    for i in range(30):
         imagens = driver.find_elements(By.TAG_NAME, "img")
         if len(imagens) >= 2:
-            print(f"🖼️ {len(imagens)} imagens encontradas")
+            print(f"🖼️ {len(imagens)} imagens encontradas na galeria")
             break
+        if i % 5 == 0 and i > 0:
+            print(f"   ... aguardando ({i}/30)")
         time.sleep(2)
     
-    wait_random(1, 2)
+    wait_random(2, 3)
     
-    botao_enviar = WebDriverWait(driver, 30).until(
-        EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Enviar') or contains(text(),'Telegram')]"))
-    )
-    driver.execute_script("arguments[0].scrollIntoView(true);", botao_enviar)
-    wait_random(1, 2)
-    driver.execute_script("arguments[0].click();", botao_enviar)
-    
-    print("📨 Enviando para Telegram...")
-    
-    # Aguarda envio completar
-    for i in range(50):
-        try:
-            if not botao_enviar.is_displayed():
-                print("✅ Envio concluído!")
+    # Procura botão de enviar
+    try:
+        botao_enviar = WebDriverWait(driver, 30).until(
+            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Enviar') or contains(text(),'enviar') or contains(text(),'Telegram')]"))
+        )
+        
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", botao_enviar)
+        wait_random(1, 2)
+        driver.execute_script("arguments[0].click();", botao_enviar)
+        
+        print("📨 Enviando para Telegram...")
+        
+        # Aguarda envio completar
+        for i in range(60):
+            try:
+                if not botao_enviar.is_displayed():
+                    print("✅ Envio concluído!")
+                    break
+            except:
+                print("✅ Envio finalizado!")
                 break
-        except:
-            print("✅ Envio finalizado!")
-            break
-        time.sleep(3)
+            
+            if i % 10 == 0 and i > 0:
+                print(f"   ... aguardando conclusão ({i}/60)")
+            time.sleep(3)
+        
+    except Exception as e:
+        print(f"⚠️ Erro ao enviar: {e}")
 
 # ------------------------------------------------------------
 # EXECUÇÃO PRINCIPAL
 # ------------------------------------------------------------
 def main():
-    print("=" * 60)
-    print("🚀 AUTOMAÇÃO DE FUTEBOL - VERSÃO ANTI-CLOUDFLARE")
-    print("=" * 60)
-    print(f"⏰ Horário: {time.strftime('%d/%m/%Y %H:%M:%S')}")
+    print("=" * 70)
+    print("🚀 AUTOMAÇÃO DE FUTEBOL - UNDETECTED CHROMEDRIVER")
+    print("=" * 70)
+    print(f"⏰ Horário de início: {time.strftime('%d/%m/%Y %H:%M:%S')}")
     print()
     
     login = os.environ.get("LOGIN")
     senha = os.environ.get("SENHA")
     
     if not login or not senha:
-        print("❌ ERRO: LOGIN ou SENHA não configurados!")
-        print("Configure as variáveis de ambiente LOGIN e SENHA")
+        print("❌ ERRO: Variáveis LOGIN ou SENHA não configuradas!")
+        print("Configure as secrets no GitHub Actions")
         return
+    
+    print(f"👤 Usuário: {login}")
+    print()
     
     driver = None
     try:
@@ -278,56 +383,62 @@ def main():
         print()
         
         fazer_login(driver, login, senha)
-        print()
         
         ir_para_futebol(driver)
-        print()
         
         selecionar_modelo_15(driver)
-        print()
         
         gerar_banners(driver)
-        print()
         
         enviar_para_telegram(driver)
-        print()
         
-        print("=" * 60)
+        print()
+        print("=" * 70)
         print("🎉 PROCESSO CONCLUÍDO COM SUCESSO!")
         print("📱 Verifique seu canal no Telegram")
-        print("=" * 60)
+        print("=" * 70)
+        print(f"⏰ Horário de conclusão: {time.strftime('%d/%m/%Y %H:%M:%S')}")
         
     except Exception as e:
         print()
-        print("=" * 60)
-        print(f"❌ ERRO GERAL: {e}")
-        print("=" * 60)
+        print("=" * 70)
+        print(f"❌ ERRO GERAL: {type(e).__name__}")
+        print(f"   Mensagem: {str(e)}")
+        print("=" * 70)
         
         if driver:
             try:
-                print(f"📍 URL atual: {driver.current_url}")
-                print(f"📄 Título da página: {driver.title}")
+                print(f"\n📍 URL atual: {driver.current_url}")
+                print(f"📄 Título: {driver.title}")
                 
-                # Salva screenshot se possível
+                # Tenta salvar screenshot
                 try:
                     screenshot_path = "/tmp/erro_screenshot.png"
                     driver.save_screenshot(screenshot_path)
-                    print(f"📸 Screenshot salvo em: {screenshot_path}")
-                except:
-                    pass
+                    print(f"📸 Screenshot salvo: {screenshot_path}")
+                except Exception as ss_err:
+                    print(f"⚠️ Não foi possível salvar screenshot: {ss_err}")
                 
-                # Mostra parte do HTML
-                body_text = driver.find_element(By.TAG_NAME, "body").text
-                print(f"📄 Conteúdo (primeiros 500 chars):")
-                print(body_text[:500])
-                print()
+                # Mostra conteúdo da página
+                try:
+                    body_text = driver.find_element(By.TAG_NAME, "body").text
+                    print(f"\n📄 Primeiros 600 caracteres da página:")
+                    print("-" * 70)
+                    print(body_text[:600])
+                    print("-" * 70)
+                except Exception as body_err:
+                    print(f"⚠️ Não foi possível obter conteúdo: {body_err}")
+                    
             except Exception as debug_err:
-                print(f"⚠️ Erro ao coletar debug info: {debug_err}")
+                print(f"⚠️ Erro ao coletar informações de debug: {debug_err}")
     
     finally:
         if driver:
-            driver.quit()
-            print("🔒 Navegador fechado")
+            try:
+                driver.quit()
+                print("\n🔒 Navegador fechado")
+            except:
+                pass
 
 # ------------------------------------------------------------
 if __name__ == "__main__":
