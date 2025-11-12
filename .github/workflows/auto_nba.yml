@@ -1,19 +1,19 @@
-name: AutoGerar Esportes
+name: Auto NBA Banners
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: "35 11 * * *"  # 08:35 horário de Brasília (UTC-3)
+    - cron: '40 13 * * *'  # Executa às 10:40 horário de Brasília (13:40 UTC)
+  workflow_dispatch:
 
 jobs:
   run:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📂 Checkout
+      - name: 📂 Checkout do repositório
         uses: actions/checkout@v4
 
-      - name: 🧩 Instalar Google Chrome
+      - name: 🧩 Instalar Google Chrome e dependências
         run: |
           sudo apt update
           sudo apt install -y google-chrome-stable chromium-driver
@@ -25,12 +25,12 @@ jobs:
 
       - name: 📦 Instalar dependências
         run: |
-          pip install selenium webdriver-manager requests cloudscraper
+          pip install selenium webdriver-manager
 
-      - name: ⚙️ Executar automação
+      - name: ⚙️ Executar automação NBA
         env:
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          CHAT_ID: ${{ secrets.CHAT_ID }}
           LOGIN: ${{ secrets.LOGIN }}
           SENHA: ${{ secrets.SENHA }}
-        run: python main.py
+        run: |
+          echo "🏀 Iniciando fluxo NBA..."
+          python nba.py
