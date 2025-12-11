@@ -2,13 +2,14 @@
 # -*- coding: utf-8 -*-
 import os, time, datetime, requests, shutil
 from pathlib import Path
-from selenium import webdriver
+# from selenium import webdriver # REMOVA esta linha
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
+# from selenium.webdriver.chrome.service import Service # REMOVA esta linha
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
+# from webdriver_manager.chrome import ChromeDriverManager # REMOVA esta linha
+import undetected_chromedriver as uc # ADICIONE esta linha
 
 LOGIN = os.environ.get("LOGIN")
 SENHA = os.environ.get("SENHA")
@@ -17,14 +18,19 @@ LOGIN_URL = f"{BASE_URL}/login.php"
 GERAR_URL = f"{BASE_URL}/futbanner.php?page=futebol&modelo=15"
 
 def setup_driver():
+    # Use uc.Chrome no lugar de webdriver.Chrome
     options = Options()
-    options.add_argument("--headless=new")
+    options.add_argument("--headless=new") # Opcional: pode ser mais fácil depurar sem headless
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    service = Service(ChromeDriverManager().install())
-    return webdriver.Chrome(service=service, options=options)
+    
+    # uc.Chrome gerencia o service e options de forma diferente do vanilla Selenium
+    # Mantendo options, mas deixando uc gerenciar o resto
+    driver = uc.Chrome(options=options)
+    return driver
 
 def wait_and_click(driver, xpath, timeout=15):
+    # (Resto da função é o mesmo)
     try:
         el = WebDriverWait(driver, timeout).until(EC.element_to_be_clickable((By.XPATH, xpath)))
         el.click()
@@ -35,8 +41,10 @@ def wait_and_click(driver, xpath, timeout=15):
 def main():
     driver = setup_driver()
     print("🔧 Iniciando...")
+    # (Resto da função main() é o mesmo)
     try:
         driver.get(LOGIN_URL)
+        # ... o resto do seu código ...
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.NAME, "username"))).send_keys(LOGIN)
         driver.find_element(By.NAME, "password").send_keys(SENHA)
         driver.find_element(By.XPATH, "//button[contains(.,'Entrar') or contains(.,'Login')]").click()
@@ -62,7 +70,7 @@ def main():
         print("✅ Processo concluído com sucesso!")
 
     except Exception as e:
-        print("❌ Erro:", e)
+        print(f"❌ Erro: {e}")
     finally:
         driver.quit()
         print("🔒 Navegador fechado")
