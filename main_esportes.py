@@ -35,7 +35,6 @@ def enviar_telegram(msg):
         print("⚠️ TELEGRAM_BOT_TOKEN ou CHAT_ID não configurados. Pulando envio.")
         return 
     
-    # URL completa e correta para a API do Telegram
     url = f"api.telegram.org{token}/sendMessage" 
     data = {"chat_id": chat_id, "text": msg, "parse_mode": "Markdown"}
     
@@ -74,7 +73,6 @@ def wait_for_page_load(driver, timeout=20):
 def fazer_login(driver, login, senha):
     print("🔑 Fazendo login no GERADOR PRO...")
     try:
-        # URL completa
         driver.get("gerador.pro") 
         wait_for_page_load(driver)
         
@@ -142,7 +140,6 @@ def acessar_todos_esportes(driver):
             time.sleep(1)
             link.click()
         else:
-            # URL completa
             print("⚠️ Link 'Todos esportes' não encontrado, acessando URL direta.")
             driver.get("gerador.pro")
         
@@ -165,7 +162,6 @@ def selecionar_modelo_roxo(driver):
         driver.execute_script("window.scrollTo(0, 400);")
         time.sleep(1)
         
-        # Correção do erro de sintaxe aqui:
         selectors ="),
             (By.XPATH, "//*[contains(@class,'modelo')]/*"),
             (By.XPATH, "//button"),
@@ -187,7 +183,6 @@ def selecionar_modelo_roxo(driver):
             modelo.click()
             time.sleep(3)
         else:
-            # URL completa
             print("⚠️ Modelo 'Roxo' não encontrado via clique, acessando URL direta.")
             driver.get("gerador.pro?modelo=roxo")
         
@@ -204,7 +199,7 @@ def gerar_banners(driver):
     try:
         wait_for_page_load(driver, 10)
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(2) # <--- O script anterior parava aqui, completei abaixo
+        time.sleep(2) 
         
         print("Procurando botão 'Gerar Banners'...")
         button = WebDriverWait(driver, 10).until(
