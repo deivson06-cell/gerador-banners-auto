@@ -9,10 +9,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
-# Não precisamos mais de Service, ChromeDriverManager, nem requests para telegram
+# Não precisamos mais de Service ou ChromeDriverManager
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, ElementClickInterceptedException
-# from webdriver_manager.chrome import ChromeDriverManager # Removido
-# import requests # Removido
+import requests
 
 # Use variáveis de ambiente para credenciais de forma segura
 LOGIN = os.environ.get("LOGIN")
@@ -20,21 +19,41 @@ SENHA = os.environ.get("SENHA")
 
 def setup_driver():
     print("🔧 Configurando Chrome com undetected_chromedriver...")
-    # uc lida com a maioria das opções anti-detecção automaticamente
     options = Options()
-    # options.add_argument("--headless=new") # Removido temporariamente para depurar Cloudflare
+    # options.add_argument("--headless=new") # Removido para ajudar a resolver o desafio Cloudflare visualmente se necessário
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
     
-    # uc.Chrome substitui webdriver.Chrome. Ele baixa e configura o driver automaticamente.
-    # Define o page load timeout aqui também.
+    # uc.Chrome lida com a maioria das opções anti-detecção e downloads de driver automaticamente.
     driver = uc.Chrome(options=options, auto_subprocs=True, page_load_timeout=60)
     print("✅ Chrome configurado e pronto para bypass Cloudflare!")
     return driver
 
-# A função de enviar para o Telegram foi removida para focar na correção do script principal.
+def enviar_telegram(msg):
+    """Envia uma mensagem para o Telegram e força falha se houver erro."""
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat_id = os.environ.get("CHAT_ID")
+    if not token or not chat_id:
+        print("⚠️ TELEGRAM_BOT_TOKEN ou CHAT_ID não configurados. Pulando envio.")
+        return # Permite que o script continue se as variáveis estiverem vazias
+    
+    url = f"api.telegram.org{token}/sendMessage"
+    data = {"chat_id": chat_id, "text": msg, "parse_mode": "Markdown"}
+    
+    try:
+        response = requests.post(url, data=data, timeout=10)
+        if response.status_code == 200:
+            print("✅ Mensagem enviada ao Telegram com sucesso!")
+        else:
+            print(f"⚠️ Falha ao enviar Telegram. Status: {response.status_code}, Resposta: {response.text}")
+            # FORÇA O GITHUB ACTIONS A FALHAR AQUI
+            raise Exception(f"Erro na API do Telegram: {response.text}") 
+    except Exception as e:
+        print(f"⚠️ Erro de conexão ao enviar Telegram: {e}")
+        # FORÇA O GITHUB ACTIONS A FALHAR AQUI
+        raise Exception(f"Erro de conexão ao enviar Telegram: {e}")
 
 def wait_for_page_load(driver, timeout=20):
     """Aguarda a página carregar completamente, incluindo scripts Cloudflare."""
@@ -44,14 +63,13 @@ def wait_for_page_load(driver, timeout=20):
         WebDriverWait(driver, timeout).until(
             lambda d: d.execute_script("return document.readyState") == "complete"
         )
-        # Verifica se o Cloudflare ainda está a apresentar um desafio (ex: "Verifying your browser")
+        # Verifica se o Cloudflare ainda está a apresentar um desafio
         if "Verifying" in driver.title or "Just a moment" in driver.page_source:
              print("Cloudflare challenge detectado. Aguardando resolução automática...")
-             # Espera até que o título da página mude do desafio para o título real
              WebDriverWait(driver, 30).until_not(
                  EC.title_contains("Verifying")
              )
-        time.sleep(3)  # Espera adicional para JS executar
+        time.sleep(3)
         return True
     except TimeoutException:
         print("⚠️ Tempo limite de carregamento excedido, mas a navegar de qualquer forma.")
@@ -63,7 +81,7 @@ def wait_for_page_load(driver, timeout=20):
 def fazer_login(driver, login, senha):
     print("🔑 Fazendo login no GERADOR PRO...")
     try:
-        driver.get("https://gerador.pro/login.php")
+        driver.get("gerador.pro")
         wait_for_page_load(driver)
         
         username_field = WebDriverWait(driver, 20).until(
@@ -98,11 +116,13 @@ def fazer_login(driver, login, senha):
         if "painel" in driver.current_url or "futbanner" in driver.current_url:
              print(f"✅ Login realizado! URL atual: {driver.current_url}")
         else:
+            # Captura source da página se o login falhar
+            # print(f"Source da página atual:\n{driver.page_source}")
             raise Exception(f"Login falhou. URL destino inesperada: {driver.current_url}")
         
     except Exception as e:
         print(f"❌ Erro no login: {e}")
-        # print(f"Source da página atual:\n{driver.page_source}") # Descomentar para debug
+        enviar_telegram(f"❌ Automação falhou no login! Erro: {e}")
         raise
 
 def acessar_todos_esportes(driver):
@@ -110,7 +130,6 @@ def acessar_todos_esportes(driver):
     try:
         wait_for_page_load(driver, 15)
         
-        # Tentativas de localização do link
         selectors = [
             (By.LINK_TEXT, "Todos esportes"),
             (By.XPATH, "//a[contains(@href,'esportes.php')]"),
@@ -132,7 +151,7 @@ def acessar_todos_esportes(driver):
             link.click()
         else:
             print("⚠️ Link 'Todos esportes' não encontrado, acessando URL direta.")
-            driver.get("https://gerador.pro/esportes.php")
+            driver.get("gerador.pro")
         
         wait_for_page_load(driver, 20)
         
@@ -143,6 +162,7 @@ def acessar_todos_esportes(driver):
         
     except Exception as e:
         print(f"❌ Erro ao acessar esportes: {e}")
+        enviar_telegram(f"❌ Automação falhou ao acessar esportes! Erro: {e}")
         raise
 
 def selecionar_modelo_roxo(driver):
@@ -152,11 +172,9 @@ def selecionar_modelo_roxo(driver):
         driver.execute_script("window.scrollTo(0, 400);")
         time.sleep(1)
         
-        # Seletores para o botão/div do modelo roxo
-        selectors = [
-            (By.XPATH, "//*[contains(text(),'Esportes Roxo')]"),
-            (By.XPATH, "//*[contains(@class,'modelo')]/*[contains(text(),'Roxo')]"),
-            (By.XPATH, "//button[contains(text(),'Roxo')]"),
+        selectors ="),
+            (By.XPATH, "//*[contains(@class,'modelo')]/*"),
+            (By.XPATH, "//button"),
         ]
         
         modelo = None
@@ -173,16 +191,17 @@ def selecionar_modelo_roxo(driver):
             driver.execute_script("arguments[0].scrollIntoView(true);", modelo)
             time.sleep(1)
             modelo.click()
-            time.sleep(3) # Tempo para a página redirecionar
+            time.sleep(3)
         else:
             print("⚠️ Modelo 'Roxo' não encontrado via clique, acessando URL direta.")
-            driver.get("https://gerador.pro/esportes.php?modelo=roxo")
+            driver.get("gerador.pro?modelo=roxo")
         
         wait_for_page_load(driver)
         print("✅ Modelo Roxo selecionado!")
         
     except Exception as e:
         print(f"❌ Erro ao selecionar modelo: {e}")
+        enviar_telegram(f"❌ Automação falhou ao selecionar modelo! Erro: {e}")
         raise
 
 def gerar_banners(driver):
@@ -200,7 +219,6 @@ def gerar_banners(driver):
         button.click()
         print("✅ Botão 'Gerar Banners' clicado.")
         
-        # Tratamento para possíveis alertas JS que podem aparecer
         try:
             WebDriverWait(driver, 5).until(EC.alert_is_present())
             driver.switch_to.alert.accept()
@@ -209,25 +227,26 @@ def gerar_banners(driver):
             print("Nenhum alerta JS encontrado.")
             pass
 
-        # Espera pelo processamento
         time.sleep(10) 
-        wait_for_page_load(driver) # Espera o redirecionamento ou a atualização da página
+        wait_for_page_load(driver)
 
         if "cartazes" in driver.current_url:
              print("✅ Banners gerados com sucesso! Redirecionado para a galeria.")
         else:
-             print(f"URL atual: {driver.current_url}")
-             print(f"Source da página:\n{driver.page_source}") # Para debug
+             # print(f"Source da página:\n{driver.page_source}")
              raise Exception("Geração de banners falhou ou não redirecionou para 'cartazes'.")
 
     except Exception as e:
         print(f"❌ Erro ao gerar banners: {e}")
+        enviar_telegram(f"❌ Automação falhou ao gerar banners! Erro: {e}")
         raise
 
 
 def main():
     if not LOGIN or not SENHA:
-        print("Erro: LOGIN ou SENHA não definidos nas variáveis de ambiente.")
+        msg = "Erro: LOGIN ou SENHA não definidos nas variáveis de ambiente."
+        print(msg)
+        enviar_telegram(f"❌ Automação falhou: {msg}")
         return
 
     driver = None
@@ -239,6 +258,7 @@ def main():
         gerar_banners(driver)
         
         print("🎉 Script principal concluído com sucesso!")
+        enviar_telegram("✅ Automação 'AutoGerar Esportes' concluída com sucesso no GitHub Actions!")
         
     except Exception as e:
         print("\n" + "="*50)
@@ -249,8 +269,6 @@ def main():
         print("="*50)
         if driver:
             print(f"URL final onde o erro ocorreu: {driver.current_url}")
-            # driver.save_screenshot("erro_screenshot.png") # Salvar screenshot para debug
-            # print("Screenshot salvo como 'erro_screenshot.png'")
     finally:
         if driver:
             driver.quit()
