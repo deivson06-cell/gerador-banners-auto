@@ -20,9 +20,13 @@ jobs:
 
       - name: 📦 Instalar dependências
         run: |
-          pip install selenium webdriver-manager requests
+          # Garante que o pip esteja atualizado
+          pip install --upgrade pip
+          # Instala as bibliotecas necessárias, incluindo a que estava a faltar:
+          pip install selenium webdriver-manager requests undetected-chromedriver
 
       - name: 🧩 Instalar Google Chrome
+        # undetected-chromedriver requer o Chrome instalado no sistema
         run: |
           sudo apt update
           sudo apt install -y google-chrome-stable
